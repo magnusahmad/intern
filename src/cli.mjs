@@ -4,7 +4,7 @@ import { fileLatestSync } from "./filing.mjs";
 import { generateScheduleArtifacts } from "./scheduler.mjs";
 import { readJson } from "./fs-util.mjs";
 import { selectRuntimeClassifier } from "./runtime-classifier.mjs";
-import { writePolicyArtifacts } from "./policy.mjs";
+import { generateHostBrokerPolicy, writePolicyArtifacts } from "./policy.mjs";
 import { probeRuntime } from "./runtime-probe.mjs";
 
 const [command, ...rest] = process.argv.slice(2);
@@ -14,12 +14,14 @@ try {
   if (command === "file-latest-sync") {
     const kbPath = required(args.kb, "--kb");
     const config = loadConfig(args.config);
+    const hostBrokerPolicy = buildHostBrokerPolicy(config);
     const classifier = selectRuntimeClassifier({
       mode: args.classifier || config.classifier || "heuristic",
       repoPath: args.codex_repo ? path.resolve(args.codex_repo) : kbPath,
       internRepoPath: process.cwd(),
       codexConfig: config.codex_exec || {},
-      hermesConfig: config.hermes || {}
+      hermesConfig: config.hermes || {},
+      hostBrokerPolicy
     });
     const result = fileLatestSync({
       kbPath,
@@ -86,6 +88,15 @@ function required(value, name) {
 function loadConfig(configPath) {
   if (!configPath) return {};
   return readJson(path.resolve(configPath));
+}
+
+function buildHostBrokerPolicy(config) {
+  if (config.runtime?.execution_boundary !== "host-broker") return null;
+  const permissionsPath = path.resolve(config.permissions_path || "config/permissions.example.json");
+  return generateHostBrokerPolicy({
+    manifest: readJson(permissionsPath),
+    config
+  });
 }
 
 function usage() {

@@ -1,5 +1,6 @@
 import { heuristicClassifyItems } from "./classifier.mjs";
 import { createCodexClassifier } from "./codex-classifier.mjs";
+import { createHostBroker } from "./host-broker.mjs";
 import { createHermesCodexClassifier } from "./hermes-codex-classifier.mjs";
 
 export function selectRuntimeClassifier({
@@ -10,12 +11,18 @@ export function selectRuntimeClassifier({
   hermesConfig = {},
   execFile,
   codexExecFile,
-  hermesExecFile
+  hermesExecFile,
+  hostBrokerPolicy
 } = {}) {
+  const hostBroker = hostBrokerPolicy ? createHostBroker({ policy: hostBrokerPolicy, execFile }) : null;
   if (!mode || mode === "heuristic") return heuristicClassifyItems;
   if (mode === "codex") {
     if (!repoPath) throw new Error("Codex classifier requires repoPath");
-    return createCodexClassifier({ repoPath, codexConfig, execFile: execFile || codexExecFile });
+    return createCodexClassifier({
+      repoPath,
+      codexConfig,
+      execFile: hostBroker?.codexExecFile || execFile || codexExecFile
+    });
   }
   if (mode === "hermes-codex") {
     if (!repoPath) throw new Error("Hermes/Codex classifier requires repoPath");
@@ -26,8 +33,8 @@ export function selectRuntimeClassifier({
         cwd: internRepoPath,
         ...hermesConfig
       },
-      codexExecFile: codexExecFile || execFile,
-      hermesExecFile
+      codexExecFile: hostBroker?.codexExecFile || codexExecFile || execFile,
+      hermesExecFile: hostBroker?.hermesExecFile || hermesExecFile
     });
   }
   throw new Error(`Unknown classifier: ${mode}`);

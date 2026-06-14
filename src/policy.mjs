@@ -85,7 +85,7 @@ export function generateHostBrokerPolicy({ manifest, config = {} }) {
     },
     application: {
       mode: "review-only",
-      note: "Host-side broker policy is a review checkpoint until Hermes/Codex run inside OpenShell or a stricter broker is installed."
+      note: "Host-side broker policy is enforced by the checked-in filing runtime, but it is not an OS sandbox."
     }
   };
 }
@@ -121,7 +121,8 @@ function renderPolicyReadme() {
     "- Confirm write roots are limited to the intern repo unless `kb_write_enabled` has been deliberately enabled.",
     "- Confirm secret values are referenced through Keychain or another local provider and are not copied into this directory.",
     "- Confirm denied tools still block unrestricted shell access and KB writes without the explicit switch.",
-    "- Confirm `host-broker-policy.json` only allows the reviewed Hermes one-shot and Codex exec paths while those tools run on the host."
+    "- Confirm `host-broker-policy.json` only allows the reviewed Hermes one-shot and Codex exec paths while those tools run on the host.",
+    "- Remember that the broker is enforced by the checked-in filing runtime; it is not an OS sandbox."
   ].join("\n") + "\n";
 }
 

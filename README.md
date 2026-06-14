@@ -16,6 +16,8 @@ npm run intern -- runtime-probe --config config/ao1-intern.example.json
 
 The schedule command only writes reviewable cron/LaunchAgent artifacts and install instructions. It does not install anything.
 
+The default runtime boundary is `host-broker`: the filing path enforces the generated broker policy before spawning Hermes one-shot or Codex exec. This prevents command, flag, cwd, and secret-prompt drift inside the checked-in runtime path, but it is not an OS sandbox.
+
 ## Local Runtime
 
 Hermes is expected at `/Users/magnus/.local/bin/hermes`. OpenShell is expected at `/Users/magnus/.local/bin/openshell`; V1 treats NemoClaw as available through OpenShell unless a standalone `nemoclaw` command appears later.
