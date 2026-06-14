@@ -7,6 +7,7 @@ import { selectRuntimeClassifier } from "./runtime-classifier.mjs";
 import { generateHostBrokerPolicy, writePolicyArtifacts } from "./policy.mjs";
 import { probeRuntime } from "./runtime-probe.mjs";
 import { runScheduledRuntimeSmoke, scheduledRuntimeEnv } from "./runtime-smoke.mjs";
+import { reviewArtifacts } from "./artifact-review.mjs";
 
 const [command, ...rest] = process.argv.slice(2);
 const args = parseArgs(rest);
@@ -72,6 +73,17 @@ try {
       env: scheduledRuntimeEnv(process.env, config)
     });
     console.log(JSON.stringify(result, null, 2));
+  } else if (command === "review-artifacts") {
+    const config = loadConfig(args.config);
+    const kbPath = args.kb || config.kb_path ? path.resolve(args.kb || config.kb_path) : null;
+    const result = reviewArtifacts({
+      repoPath: process.cwd(),
+      kbPath,
+      policyDir: args.policy_dir ? path.resolve(args.policy_dir) : undefined,
+      scheduleDir: args.schedule_dir ? path.resolve(args.schedule_dir) : undefined
+    });
+    console.log(JSON.stringify(result, null, 2));
+    if (result.status !== "passed") process.exit(1);
   } else {
     usage();
     process.exit(command ? 1 : 0);
@@ -129,5 +141,6 @@ function usage() {
   npm run intern -- schedule-artifacts --kb /path/to/kb [--config <path>] [--out-dir <path>]
   npm run intern -- policy-artifacts [--permissions <path>] [--config <path>] [--out-dir <path>]
   npm run intern -- runtime-probe [--config <path>]
-  npm run intern -- scheduled-runtime-smoke --config <path> [--kb /path/to/kb]`);
+  npm run intern -- scheduled-runtime-smoke --config <path> [--kb /path/to/kb]
+  npm run intern -- review-artifacts [--config <path>] [--kb /path/to/kb]`);
 }

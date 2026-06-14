@@ -31,8 +31,11 @@ test("test_scheduler_install_outputs_manual_instructions_without_mutating_cronta
   assert.match(fs.readFileSync(result.cronPath, "utf8"), /--config/);
   assert.match(fs.readFileSync(result.cronPath, "utf8"), /HOME=/);
   assert.match(fs.readFileSync(result.cronPath, "utf8"), /PATH=/);
-  assert.match(fs.readFileSync(result.installPath, "utf8"), /Manual installation only/);
-  assert.match(fs.readFileSync(result.installPath, "utf8"), /crontab/);
+  const install = fs.readFileSync(result.installPath, "utf8");
+  assert.match(install, /Manual installation only/);
+  assert.match(install, /merge/i);
+  assert.match(install, /crontab -l/);
+  assert.doesNotMatch(install, new RegExp(`crontab ${escapeRegExp(result.cronPath)}`));
 });
 
 test("test_scheduler_wraps_default_runtime_with_macos_sandbox_profile", () => {
@@ -99,4 +102,8 @@ function safeCrontab() {
   } catch {
     return "";
   }
+}
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

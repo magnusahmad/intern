@@ -13,6 +13,7 @@ npm run intern -- file-latest-sync --kb /Users/magnus/Documents/Projects/ao1-kb 
 npm run intern -- file-latest-sync --kb /Users/magnus/Documents/Projects/ao1-kb --classifier codex --config config/ao1-intern.example.json
 npm run intern -- schedule-artifacts --kb /Users/magnus/Documents/Projects/ao1-kb --config config/ao1-intern.example.json
 npm run intern -- policy-artifacts --permissions config/permissions.example.json --config config/ao1-intern.example.json
+npm run intern -- review-artifacts --config config/ao1-intern.example.json
 npm run intern -- runtime-probe --config config/ao1-intern.example.json
 npm run intern -- scheduled-runtime-smoke --config config/ao1-intern.example.json
 ```
@@ -28,6 +29,8 @@ The v1 commit policy is `per-run`: each successful filing run creates its own co
 Direct KB write-back is disabled by default. To enable it for a reviewed run, set `kb.kb_write_enabled` to `true` and declare an explicit KB write root in the permissions manifest passed with `--permissions`; otherwise filed markdown stays in the intern repo only. When enabled, new KB concept files are created and existing concept files are appended to rather than overwritten.
 
 `policy-artifacts` also writes `host-broker.sb`, a reviewable macOS `sandbox-exec` profile generated from the same host-broker policy, plus `com.ao1.intern.openshell-gateway.plist`, a reviewed LaunchAgent artifact for the local OpenShell gateway. These artifacts are manual-only for now: review them before use, and do not install or apply them automatically.
+
+Run `review-artifacts` after generating schedule and policy artifacts. It checks that required artifacts exist, generated files contain no secret-like values, KB writes remain disabled, write roots stay in the Intern repo, Codex remains read-only/user-config-isolated/ephemeral, and the cron command uses the reviewed sandbox wrapper. This is a machine gate, not a substitute for human review before install.
 
 Manual OS-level smoke after generating policy artifacts:
 
