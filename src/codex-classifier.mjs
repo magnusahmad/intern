@@ -25,10 +25,11 @@ export function createCodexClassifier({
       ephemeral: codexConfig.ephemeral,
       execFile
     });
-    return mapCodexDecisionsToItems({
+    return mapClassifierDecisionsToItems({
       decisions: parseCodexClassifierOutput(output),
       items,
-      rules
+      rules,
+      label: "Codex classifier"
     });
   };
 }
@@ -88,7 +89,7 @@ export function parseCodexClassifierOutput(text) {
   return parsed.items;
 }
 
-function mapCodexDecisionsToItems({ decisions, items, rules }) {
+export function mapClassifierDecisionsToItems({ decisions, items, rules, label = "Classifier" }) {
   const bySourceItemId = new Map(items.map((entry) => [entry.item.source_item_id, entry]));
   const fallbackRules = rules.files.map((entry) => entry.name);
   const classified = [];
@@ -98,10 +99,10 @@ function mapCodexDecisionsToItems({ decisions, items, rules }) {
     const sourceItemId = decision.source_item_id || decision.sourceItemId;
     const entry = bySourceItemId.get(sourceItemId);
     if (!entry) {
-      throw new Error(`Codex classifier returned unknown source_item_id: ${sourceItemId || "(missing)"}`);
+      throw new Error(`${label} returned unknown source_item_id: ${sourceItemId || "(missing)"}`);
     }
     if (!ALLOWED_CLASSIFICATIONS.has(decision.classification)) {
-      throw new Error(`Codex classifier returned unsupported classification: ${decision.classification}`);
+      throw new Error(`${label} returned unsupported classification: ${decision.classification}`);
     }
     classified.push({
       file: entry.file,

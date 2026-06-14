@@ -78,3 +78,36 @@ export function gitCommitCount(repo) {
     return 0;
   }
 }
+
+export function sampleClassifierContext() {
+  return {
+    items: [{
+      file: "/tmp/nemoclaw-note.json",
+      item: {
+        source: "local-files",
+        source_item_id: "notes/nemoclaw.md",
+        source_url: "file:///notes/nemoclaw.md",
+        content_type: "md",
+        title: "NemoClaw Intern Governance",
+        curatable: true,
+        body_text: "AO1 should test NemoClaw and OpenShell as an Intern governance layer for Hermes and Codex orchestration."
+      }
+    }],
+    rules: {
+      files: [{
+        name: "AGENTS.md",
+        text: "Use concept folders for AO1. Do not paste full transcripts into the KB."
+      }]
+    },
+    manifest: {
+      connector_id: "local-files",
+      run_id: "2026-06-14T150003-175Z"
+    },
+    sync: {
+      run_id: "2026-06-14T150003-175Z"
+    },
+    curate: {
+      reason: "scheduled-resync"
+    }
+  };
+}

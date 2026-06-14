@@ -17,7 +17,9 @@ try {
     const classifier = selectRuntimeClassifier({
       mode: args.classifier || config.classifier || "heuristic",
       repoPath: args.codex_repo ? path.resolve(args.codex_repo) : kbPath,
-      codexConfig: config.codex_exec || {}
+      internRepoPath: process.cwd(),
+      codexConfig: config.codex_exec || {},
+      hermesConfig: config.hermes || {}
     });
     const result = fileLatestSync({
       kbPath,

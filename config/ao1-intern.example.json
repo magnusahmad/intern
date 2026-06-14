@@ -4,7 +4,7 @@
   "state_dir": ".ao1-intern",
   "runs_dir": "runs",
   "permissions_path": "config/permissions.example.json",
-  "classifier": "codex",
+  "classifier": "hermes-codex",
   "model_provider": {
     "credential_ref": "keychain://ao1-intern/model-provider"
   },
@@ -14,6 +14,10 @@
     "sandbox": "read-only",
     "ignore_user_config": true,
     "ephemeral": true
+  },
+  "hermes": {
+    "command": "/Users/magnus/.local/bin/hermes",
+    "cwd": "/Users/magnus/Documents/Projects/ao1-intern"
   },
   "runtime": {
     "commands": {
