@@ -1,0 +1,30 @@
+{
+  "agent_id": "ao1-intern",
+  "users": ["Magnus", "Suley"],
+  "kb": {
+    "read": ["*"],
+    "write": [],
+    "kb_write_enabled": false
+  },
+  "ao1_repos": {
+    "read": [
+      "/Users/magnus/Documents/Projects/ao1",
+      "/Users/magnus/Documents/Projects/ao1-kb",
+      "/Users/magnus/Documents/Projects/ao1-intern"
+    ]
+  },
+  "intern_repo": {
+    "read": ["/Users/magnus/Documents/Projects/ao1-intern"],
+    "write": [
+      "/Users/magnus/Documents/Projects/ao1-intern/runs",
+      "/Users/magnus/Documents/Projects/ao1-intern/.ao1-intern"
+    ]
+  },
+  "network": {
+    "allow": ["model-provider", "github.com:read"]
+  },
+  "tools": {
+    "allow": ["git-status", "git-diff", "git-commit", "file-read", "file-write-runs", "hermes", "codex-exec"],
+    "deny": ["shell-unrestricted", "kb-write-unless-enabled"]
+  }
+}

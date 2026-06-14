@@ -1,0 +1,13 @@
+{
+  "agent_id": "ao1-intern",
+  "kb_path": "/Users/magnus/Documents/Projects/ao1-kb",
+  "state_dir": ".ao1-intern",
+  "runs_dir": "runs",
+  "permissions_path": "config/permissions.example.json",
+  "model_provider": {
+    "credential_ref": "keychain://ao1-intern/model-provider"
+  },
+  "github": {
+    "credential_ref": "keychain://ao1-intern/github"
+  }
+}
