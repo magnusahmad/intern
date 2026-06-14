@@ -43,3 +43,14 @@ test("test_scheduled_runtime_smoke_rejects_unexpected_model_output", () => {
     execFile: () => "unexpected"
   }), /scheduled runtime smoke/i);
 });
+
+test("test_scheduled_runtime_env_includes_configured_ca_bundle", () => {
+  assert.deepEqual(scheduledRuntimeEnv({
+    HOME: "/Users/magnus",
+    PATH: "/opt/homebrew/bin:/usr/bin:/bin"
+  }, config), {
+    HOME: "/Users/magnus",
+    PATH: "/opt/homebrew/bin:/usr/bin:/bin",
+    SSL_CERT_FILE: "/opt/homebrew/etc/openssl@3/cert.pem"
+  });
+});

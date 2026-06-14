@@ -6,11 +6,14 @@ import { generateHostBrokerPolicy } from "./policy.mjs";
 const CODEX_EXPECTED = "AO1_CODEX_SCHEDULE_SMOKE_OK";
 const HERMES_EXPECTED = "AO1_HERMES_SCHEDULE_SMOKE_OK";
 
-export function scheduledRuntimeEnv(env = process.env) {
-  return {
+export function scheduledRuntimeEnv(env = process.env, config = {}) {
+  const runtimeEnv = {
     HOME: env.HOME || "",
     PATH: env.PATH || ""
   };
+  const caBundle = config.runtime?.macos_sandbox?.ca_bundle || env.SSL_CERT_FILE;
+  if (caBundle) runtimeEnv.SSL_CERT_FILE = caBundle;
+  return runtimeEnv;
 }
 
 export function runScheduledRuntimeSmoke({

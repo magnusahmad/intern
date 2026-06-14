@@ -64,7 +64,7 @@ try {
       manifest: readJson(permissionsPath),
       kbPath,
       repoPath: process.cwd(),
-      env: scheduledRuntimeEnv()
+      env: scheduledRuntimeEnv(process.env, config)
     });
     console.log(JSON.stringify(result, null, 2));
   } else {

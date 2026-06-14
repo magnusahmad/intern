@@ -26,6 +26,43 @@
       "codex": "codex",
       "nemoclaw": "nemoclaw",
       "openshell": "/Users/magnus/.local/bin/openshell"
+    },
+    "macos_sandbox": {
+      "npm_command": "/opt/homebrew/bin/npm",
+      "ca_bundle": "/opt/homebrew/etc/openssl@3/cert.pem",
+      "tool_read_roots": [
+        "/opt/homebrew/bin",
+        "/opt/homebrew/etc",
+        "/opt/homebrew/etc/openssl@3",
+        "/opt/homebrew/opt",
+        "/opt/homebrew/Cellar",
+        "/opt/homebrew/lib/node_modules/npm",
+        "/opt/homebrew/Caskroom/codex",
+        "/Users/magnus/.local/bin",
+        "/Users/magnus/.hermes/hermes-agent",
+        "/Users/magnus/.local/share/uv/python"
+      ],
+      "auth_read_roots": [
+        "/Users/magnus/.codex",
+        "/Users/magnus/.hermes",
+        "/Users/magnus/.config/hermes",
+        "/Users/magnus/.local/share/hermes"
+      ],
+      "auth_write_roots": [
+        "/Users/magnus/.codex",
+        "/Users/magnus/.hermes/logs"
+      ],
+      "system_read_roots": [
+        "/private/var/select/sh"
+      ],
+      "temp_write_roots": [
+        "/private/tmp",
+        "/private/var/folders/2r/mpm3k8f971132z3x_k6_z5km0000gn/T"
+      ],
+      "unix_socket_roots": [
+        "/private/var/folders/2r/mpm3k8f971132z3x_k6_z5km0000gn/T",
+        "/private/var/folders/2r/mpm3k8f971132z3x_k6_z5km0000gn/T/codex-ipc"
+      ]
     }
   },
   "github": {
