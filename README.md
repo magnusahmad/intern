@@ -21,6 +21,8 @@ The schedule command only writes reviewable cron/LaunchAgent artifacts and insta
 
 The default runtime boundary is `host-broker`: the filing path enforces the generated broker policy before spawning Hermes one-shot or Codex exec. This prevents command, flag, cwd, and secret-prompt drift inside the checked-in runtime path.
 
+The Codex path intentionally ignores the user's Codex config. Intern does not update `~/.codex` or rely on its default model; the reviewed `codex_exec` config is the source of truth. Attempts to set `ignore_user_config: false` or `ephemeral: false` fail before command or policy generation.
+
 The v1 commit policy is `per-run`: each successful filing run creates its own commit for auditability. Use `--commit-policy manual` or `--commit false` for local review runs that should leave files uncommitted.
 
 Direct KB write-back is disabled by default. To enable it for a reviewed run, set `kb.kb_write_enabled` to `true` and declare an explicit KB write root in the permissions manifest passed with `--permissions`; otherwise filed markdown stays in the intern repo only. When enabled, new KB concept files are created and existing concept files are appended to rather than overwritten.

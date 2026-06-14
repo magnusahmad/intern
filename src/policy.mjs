@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { normalizeCodexExecConfig } from "./codex-driver.mjs";
 import { writeJson } from "./fs-util.mjs";
 
 export function generateOpenShellPolicy(manifest) {
@@ -42,6 +43,7 @@ export function generateHostBrokerPolicy({ manifest, config = {} }) {
     ...kbWriteRoots,
     ...(manifest.intern_repo?.write || [])
   ]).map((entryPath) => ({ path: entryPath, mode: "write" }));
+  const codexConfig = normalizeCodexExecConfig(config.codex_exec || {});
 
   return {
     version: "ao1-intern.host-broker-policy.v1",
@@ -61,11 +63,11 @@ export function generateHostBrokerPolicy({ manifest, config = {} }) {
         allow: (manifest.tools?.allow || []).includes("codex-exec"),
         command: config.runtime?.commands?.codex || "codex",
         mode: "draft-classifier",
-        model: config.codex_exec?.model || null,
-        service_tier: config.codex_exec?.service_tier || null,
-        sandbox: config.codex_exec?.sandbox || null,
-        ignore_user_config: config.codex_exec?.ignore_user_config === true,
-        ephemeral: config.codex_exec?.ephemeral === true
+        model: codexConfig.model,
+        service_tier: codexConfig.serviceTier,
+        sandbox: codexConfig.sandbox,
+        ignore_user_config: codexConfig.ignoreUserConfig,
+        ephemeral: codexConfig.ephemeral
       },
       deny: manifest.tools?.deny || []
     },

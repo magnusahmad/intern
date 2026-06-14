@@ -138,6 +138,43 @@ test("test_host_broker_policy_limits_hermes_codex_and_secrets", () => {
   assert.doesNotMatch(JSON.stringify(policy), /sk-[A-Za-z0-9_-]{16,}|PRIVATE KEY|refresh_token/);
 });
 
+test("test_host_broker_policy_defaults_to_ignoring_codex_user_config", () => {
+  const policy = generateHostBrokerPolicy({
+    manifest,
+    config: {
+      runtime: {
+        commands: {
+          codex: "codex"
+        }
+      }
+    }
+  });
+
+  assert.equal(policy.tools.codex.command, "codex");
+  assert.equal(policy.tools.codex.model, "gpt-5.5");
+  assert.equal(policy.tools.codex.service_tier, "fast");
+  assert.equal(policy.tools.codex.sandbox, "read-only");
+  assert.equal(policy.tools.codex.ignore_user_config, true);
+  assert.equal(policy.tools.codex.ephemeral, true);
+
+  assert.throws(() => generateHostBrokerPolicy({
+    manifest,
+    config: {
+      codex_exec: {
+        ignore_user_config: false
+      }
+    }
+  }), /ignore user config/);
+  assert.throws(() => generateHostBrokerPolicy({
+    manifest,
+    config: {
+      codex_exec: {
+        ephemeral: false
+      }
+    }
+  }), /ephemeral/);
+});
+
 test("test_policy_generation_excludes_kb_write_roots_until_switch_enabled", () => {
   const config = JSON.parse(fs.readFileSync("config/ao1-intern.example.json", "utf8"));
   const kbWritePath = "/Users/magnus/Documents/Projects/ao1-kb";
