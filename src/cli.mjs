@@ -5,6 +5,7 @@ import { generateScheduleArtifacts } from "./scheduler.mjs";
 import { readJson } from "./fs-util.mjs";
 import { selectRuntimeClassifier } from "./runtime-classifier.mjs";
 import { writePolicyArtifacts } from "./policy.mjs";
+import { probeRuntime } from "./runtime-probe.mjs";
 
 const [command, ...rest] = process.argv.slice(2);
 const args = parseArgs(rest);
@@ -40,6 +41,10 @@ try {
       manifest: readJson(permissionsPath),
       outDir: args.out_dir ? path.resolve(args.out_dir) : path.join(process.cwd(), ".ao1-intern", "policies")
     });
+    console.log(JSON.stringify(result, null, 2));
+  } else if (command === "runtime-probe") {
+    const config = loadConfig(args.config);
+    const result = probeRuntime({ commands: config.runtime?.commands || {} });
     console.log(JSON.stringify(result, null, 2));
   } else {
     usage();
@@ -81,5 +86,6 @@ function usage() {
   console.log(`Usage:
   npm run intern -- file-latest-sync --kb /path/to/kb [--run-id <id>] [--classifier heuristic|codex] [--config <path>]
   npm run intern -- schedule-artifacts --kb /path/to/kb [--out-dir <path>]
-  npm run intern -- policy-artifacts [--permissions <path>] [--out-dir <path>]`);
+  npm run intern -- policy-artifacts [--permissions <path>] [--out-dir <path>]
+  npm run intern -- runtime-probe [--config <path>]`);
 }

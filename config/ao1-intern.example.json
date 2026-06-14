@@ -15,6 +15,14 @@
     "ignore_user_config": true,
     "ephemeral": true
   },
+  "runtime": {
+    "commands": {
+      "hermes": "/Users/magnus/.local/bin/hermes",
+      "codex": "codex",
+      "nemoclaw": "nemoclaw",
+      "openshell": "openshell"
+    }
+  },
   "github": {
     "credential_ref": "keychain://ao1-intern/github"
   }
