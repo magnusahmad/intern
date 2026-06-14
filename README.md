@@ -7,7 +7,9 @@ AO1 dogfood repo for the internal Intern agent. V1 observes AO1 KB syncs, reads 
 ```bash
 npm test
 npm run intern -- file-latest-sync --kb /Users/magnus/Documents/Projects/ao1-kb
+npm run intern -- file-latest-sync --kb /Users/magnus/Documents/Projects/ao1-kb --classifier codex --config config/ao1-intern.example.json
 npm run intern -- schedule-artifacts --kb /Users/magnus/Documents/Projects/ao1-kb
+npm run intern -- policy-artifacts --permissions config/permissions.example.json
 ```
 
 The schedule command only writes reviewable cron/LaunchAgent artifacts and install instructions. It does not install anything.

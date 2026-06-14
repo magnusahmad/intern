@@ -1,4 +1,5 @@
 import { assertNoSecretsInText } from "./secrets.mjs";
+import { execFileSync } from "node:child_process";
 
 export function buildCodexExecInvocation({
   repo,
@@ -18,6 +19,29 @@ export function buildCodexExecInvocation({
   args.push("--cd", repo);
   args.push(prompt);
   return { command: "codex", args };
+}
+
+export function runCodexExec({
+  repo,
+  prompt,
+  model,
+  serviceTier,
+  sandbox,
+  ignoreUserConfig,
+  ephemeral,
+  execFile = execFileSync
+}) {
+  const { command, args } = buildCodexExecInvocation({
+    repo,
+    prompt,
+    model,
+    serviceTier,
+    sandbox,
+    ignoreUserConfig,
+    ephemeral
+  });
+  const output = execFile(command, args, { encoding: "utf8", maxBuffer: 1024 * 1024 * 10 });
+  return validateCodexOutput(String(output));
 }
 
 export function validateCodexOutput(text) {

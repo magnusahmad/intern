@@ -4,6 +4,7 @@
   "state_dir": ".ao1-intern",
   "runs_dir": "runs",
   "permissions_path": "config/permissions.example.json",
+  "classifier": "codex",
   "model_provider": {
     "credential_ref": "keychain://ao1-intern/model-provider"
   },
