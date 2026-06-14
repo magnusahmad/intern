@@ -38,6 +38,7 @@ export function runHermesOneshot({
   ignoreRules,
   yolo,
   cwd,
+  env,
   execFile = execFileSync
 }) {
   const invocation = buildHermesOneshotInvocation({
@@ -51,11 +52,13 @@ export function runHermesOneshot({
     ignoreRules,
     yolo
   });
-  const output = execFile(invocation.command, invocation.args, {
+  const options = {
     cwd,
     encoding: "utf8",
     maxBuffer: 1024 * 1024 * 10
-  });
+  };
+  if (env) options.env = env;
+  const output = execFile(invocation.command, invocation.args, options);
   return validateHermesOutput(String(output));
 }
 

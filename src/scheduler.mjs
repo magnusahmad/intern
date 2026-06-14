@@ -12,6 +12,7 @@ export function generateScheduleArtifacts({
   kbPath,
   repoPath,
   configPath = path.join(repoPath, "config", "ao1-intern.example.json"),
+  env = scheduledCommandEnv(),
   outDir = path.join(repoPath, ".ao1-intern", "schedules")
 }) {
   const cron = observerCronForKb(kbPath);
@@ -21,7 +22,9 @@ export function generateScheduleArtifacts({
   const installPath = path.join(outDir, "INSTALL.md");
   const command = [
     `cd ${shellQuote(repoPath)}`,
-    "&& npm run intern -- file-latest-sync",
+    "&&",
+    renderEnvAssignments(env),
+    "npm run intern -- file-latest-sync",
     `--kb ${shellQuote(kbPath)}`,
     configPath ? `--config ${shellQuote(configPath)}` : "",
     `>> ${shellQuote(logPath)} 2>&1`
@@ -46,4 +49,18 @@ export function generateScheduleArtifacts({
 
 function shellQuote(value) {
   return `'${String(value).replaceAll("'", "'\\''")}'`;
+}
+
+function scheduledCommandEnv(env = process.env) {
+  return {
+    HOME: env.HOME || "",
+    PATH: env.PATH || ""
+  };
+}
+
+function renderEnvAssignments(env) {
+  return Object.entries(env)
+    .filter(([, value]) => value)
+    .map(([key, value]) => `${key}=${shellQuote(value)}`)
+    .join(" ");
 }

@@ -27,6 +27,8 @@ test("test_scheduler_install_outputs_manual_instructions_without_mutating_cronta
   assert.equal(after, before);
   assert.match(fs.readFileSync(result.cronPath, "utf8"), /file-latest-sync --kb/);
   assert.match(fs.readFileSync(result.cronPath, "utf8"), /--config/);
+  assert.match(fs.readFileSync(result.cronPath, "utf8"), /HOME=/);
+  assert.match(fs.readFileSync(result.cronPath, "utf8"), /PATH=/);
   assert.match(fs.readFileSync(result.installPath, "utf8"), /Manual installation only/);
   assert.match(fs.readFileSync(result.installPath, "utf8"), /crontab/);
 });

@@ -6,6 +6,7 @@ import { readJson } from "./fs-util.mjs";
 import { selectRuntimeClassifier } from "./runtime-classifier.mjs";
 import { generateHostBrokerPolicy, writePolicyArtifacts } from "./policy.mjs";
 import { probeRuntime } from "./runtime-probe.mjs";
+import { runScheduledRuntimeSmoke, scheduledRuntimeEnv } from "./runtime-smoke.mjs";
 
 const [command, ...rest] = process.argv.slice(2);
 const args = parseArgs(rest);
@@ -53,6 +54,18 @@ try {
   } else if (command === "runtime-probe") {
     const config = loadConfig(args.config);
     const result = probeRuntime({ commands: config.runtime?.commands || {} });
+    console.log(JSON.stringify(result, null, 2));
+  } else if (command === "scheduled-runtime-smoke") {
+    const config = loadConfig(args.config);
+    const kbPath = required(args.kb || config.kb_path, "--kb");
+    const permissionsPath = path.resolve(config.permissions_path || args.permissions || "config/permissions.example.json");
+    const result = runScheduledRuntimeSmoke({
+      config,
+      manifest: readJson(permissionsPath),
+      kbPath,
+      repoPath: process.cwd(),
+      env: scheduledRuntimeEnv()
+    });
     console.log(JSON.stringify(result, null, 2));
   } else {
     usage();
@@ -104,5 +117,6 @@ function usage() {
   npm run intern -- file-latest-sync --kb /path/to/kb [--run-id <id>] [--classifier heuristic|codex] [--config <path>]
   npm run intern -- schedule-artifacts --kb /path/to/kb [--config <path>] [--out-dir <path>]
   npm run intern -- policy-artifacts [--permissions <path>] [--config <path>] [--out-dir <path>]
-  npm run intern -- runtime-probe [--config <path>]`);
+  npm run intern -- runtime-probe [--config <path>]
+  npm run intern -- scheduled-runtime-smoke --config <path> [--kb /path/to/kb]`);
 }

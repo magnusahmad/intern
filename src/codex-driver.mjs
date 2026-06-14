@@ -29,6 +29,7 @@ export function runCodexExec({
   sandbox,
   ignoreUserConfig,
   ephemeral,
+  env,
   execFile = execFileSync
 }) {
   const { command, args } = buildCodexExecInvocation({
@@ -40,7 +41,9 @@ export function runCodexExec({
     ignoreUserConfig,
     ephemeral
   });
-  const output = execFile(command, args, { encoding: "utf8", maxBuffer: 1024 * 1024 * 10 });
+  const options = { encoding: "utf8", maxBuffer: 1024 * 1024 * 10 };
+  if (env) options.env = env;
+  const output = execFile(command, args, options);
   return validateCodexOutput(String(output));
 }
 
