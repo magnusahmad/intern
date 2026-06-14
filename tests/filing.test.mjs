@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import { execFileSync } from "node:child_process";
 import test from "node:test";
 import { fileLatestSync } from "../src/filing.mjs";
 import { makeTempRepo, writeKbFixture, gitCommitCount } from "./helpers.mjs";
@@ -33,6 +34,69 @@ test("test_latest_sync_report_is_filed_once", () => {
 
   const checkpoint = JSON.parse(fs.readFileSync(path.join(intern, ".ao1-intern", "checkpoint.json"), "utf8"));
   assert.equal(checkpoint.filed_runs[runId].status, "filed");
+});
+
+test("test_filed_record_links_back_to_source_evidence", () => {
+  const { intern, kb } = makeTempRepo();
+  const { runId } = writeKbFixture(kb);
+
+  const result = fileLatestSync({ kbPath: kb, repoPath: intern, commit: false });
+
+  assert.equal(result.status, "filed");
+  const markdown = fs.readFileSync(result.outputs[0], "utf8");
+  assert.match(markdown, new RegExp(`Sync run: ${runId}`));
+  assert.match(markdown, /Raw manifest: .*\/manifest\.json/);
+  assert.match(markdown, /Connector: local-files/);
+  assert.match(markdown, /Curation reason: scheduled-resync/);
+  assert.match(markdown, /## Evidence/);
+  assert.match(markdown, /notes\/nemoclaw\.md: file:\/\/\/notes\/nemoclaw\.md/);
+
+  const checkpoint = JSON.parse(fs.readFileSync(path.join(intern, ".ao1-intern", "checkpoint.json"), "utf8"));
+  assert.match(checkpoint.filed_runs[runId].manifest_path, /\/manifest\.json$/);
+  assert.deepEqual(checkpoint.filed_runs[runId].outputs, [
+    path.relative(intern, result.outputs[0])
+  ]);
+});
+
+test("test_filed_items_are_committed_automatically", () => {
+  const { intern, kb } = makeTempRepo();
+  const { runId } = writeKbFixture(kb);
+
+  const result = fileLatestSync({ kbPath: kb, repoPath: intern });
+
+  assert.equal(result.status, "filed");
+  assert.equal(result.commit.status, "committed");
+  assert.equal(gitCommitCount(intern), 1);
+  assert.equal(
+    execFileSync("git", ["log", "-1", "--pretty=%s"], { cwd: intern, encoding: "utf8" }).trim(),
+    `File AO1 intern sync ${runId}`
+  );
+  assert.equal(execFileSync("git", ["status", "--short", ...result.outputs.map((file) => path.relative(intern, file))], {
+    cwd: intern,
+    encoding: "utf8"
+  }).trim(), "");
+});
+
+test("test_filed_markdown_follows_kb_rules", () => {
+  const { intern, kb } = makeTempRepo();
+  writeKbFixture(kb);
+
+  const result = fileLatestSync({ kbPath: kb, repoPath: intern, commit: false });
+
+  assert.equal(result.status, "filed");
+  const markdown = fs.readFileSync(result.outputs[0], "utf8");
+  assert.match(markdown, /Owner: AO1/);
+  assert.match(markdown, /Last reviewed:/);
+  assert.match(markdown, /Sources: local-files:notes\/nemoclaw\.md/);
+  assert.match(markdown, /Related: product\/ideas/);
+  assert.match(markdown, /Target concept: product\/ideas\/intern-agent-governance\.md/);
+  assert.match(markdown, /## KB Rules Consulted/);
+  assert.match(markdown, /- AGENTS\.md/);
+  assert.match(markdown, /- README\.md/);
+  assert.match(markdown, /- index\.md/);
+  assert.match(markdown, /- product\/ideas\.md/);
+  assert.match(markdown, /- shared\/source-map\/index\.md/);
+  assert.doesNotMatch(markdown, /ao1-intern:curatable/);
 });
 
 test("test_commit_policy_per_run_commits_each_successful_filing_run", () => {
