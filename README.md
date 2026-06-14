@@ -14,3 +14,35 @@ npm run intern -- runtime-probe --config config/ao1-intern.example.json
 ```
 
 The schedule command only writes reviewable cron/LaunchAgent artifacts and install instructions. It does not install anything.
+
+## Local Runtime
+
+Hermes is expected at `/Users/magnus/.local/bin/hermes`. OpenShell is expected at `/Users/magnus/.local/bin/openshell`; V1 treats NemoClaw as available through OpenShell unless a standalone `nemoclaw` command appears later.
+
+The runtime probe requires Hermes, Codex, and a runnable containment layer. When OpenShell is the containment layer, it also runs `openshell status` so a disconnected gateway is reported before a scheduled filing run starts.
+
+```bash
+/Users/magnus/.local/bin/openshell-gateway generate-certs --output-dir /Users/magnus/.local/state/openshell/ao1-gateway/tls
+cp config/openshell-gateway.example.toml /Users/magnus/.config/openshell/ao1-gateway.toml
+```
+
+Do not commit generated gateway TLS or JWT material. Keep it under local state or Keychain-managed paths.
+
+Start the local gateway manually while dogfooding:
+
+```bash
+DOCKER_HOST=unix:///Users/magnus/.docker/run/docker.sock /Users/magnus/.local/bin/openshell-gateway \
+  --config /Users/magnus/.config/openshell/ao1-gateway.toml \
+  --tls-cert /Users/magnus/.local/state/openshell/ao1-gateway/tls/server/tls.crt \
+  --tls-key /Users/magnus/.local/state/openshell/ao1-gateway/tls/server/tls.key \
+  --tls-client-ca /Users/magnus/.local/state/openshell/ao1-gateway/tls/ca.crt \
+  --enable-mtls-auth true \
+  --port 17670
+```
+
+Then verify:
+
+```bash
+/Users/magnus/.local/bin/openshell status
+npm run intern -- runtime-probe --config config/ao1-intern.example.json
+```
