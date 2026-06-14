@@ -4,6 +4,7 @@ import { execFileSync } from "node:child_process";
 import { safeSlug, writeJson, readJson } from "./fs-util.mjs";
 import { findLatestSyncRun, hasNewCuratedItems, loadRunManifest } from "./kb-sync.mjs";
 import { loadKbRules } from "./kb-rules.mjs";
+import { heuristicClassifyItems, validateClassifiedItems } from "./classifier.mjs";
 
 export function fileLatestSync({
   kbPath,
@@ -11,7 +12,8 @@ export function fileLatestSync({
   stateDir = path.join(repoPath, ".ao1-intern"),
   runsDir = path.join(repoPath, "runs"),
   runId = null,
-  commit = true
+  commit = true,
+  classifier = heuristicClassifyItems
 }) {
   const checkpointPath = path.join(stateDir, "checkpoint.json");
   const lock = acquireLock(stateDir);
@@ -38,7 +40,7 @@ export function fileLatestSync({
 
     const rules = loadKbRules(kbPath);
     const { manifestPath, manifest, items } = loadRunManifest(kbPath, sync);
-    const classified = classifyItems(items, rules);
+    const classified = validateClassifiedItems(classifier({ items, rules, manifest, sync, curate }));
     if (!classified.length) {
       checkpoint.filed_runs[sync.run_id] = {
         status: "no-curatable-items",
@@ -109,66 +111,6 @@ function loadCheckpoint(file) {
   return { filed_runs: {}, ...parsed };
 }
 
-export function classifyItems(items, rules) {
-  const results = [];
-  for (const { file, item } of items) {
-    const text = item.body_text || "";
-    if (!isCuratable(item, text)) continue;
-    const conceptPath = chooseConceptPath(item, text);
-    results.push({
-      file,
-      item,
-      conceptPath,
-      summary: summarize(text),
-      classification: classifyKind(text),
-      rulesConsulted: rules.files.map((entry) => entry.name)
-    });
-  }
-  return results;
-}
-
-function isCuratable(item, text) {
-  if (item.curatable === true || item.raw?.curatable === true) return true;
-  if (/ao1-intern:curatable/i.test(text)) return true;
-  if (/Owner:\s*AO1/i.test(text) && /Sources:/i.test(text)) return true;
-  return false;
-}
-
-function chooseConceptPath(item, text) {
-  const lower = `${item.title || ""}\n${text}`.toLowerCase();
-  if (/openshell|nemoclaw|hermes|codex|intern|agent governance/.test(lower)) {
-    return "product/ideas/intern-agent-governance.md";
-  }
-  if (/meeting|follow-up|decision|availability/.test(lower)) {
-    return "meetings/intern-sync-notes.md";
-  }
-  if (/brand|voice|logo|company bio/.test(lower)) {
-    return "brand/company-bio.md";
-  }
-  if (/doctrine|research|market|architecture/.test(lower)) {
-    return "research/ai-operating-doctrine.md";
-  }
-  return `shared/imports/${safeSlug(item.title || item.source_item_id || "curated-item")}.md`;
-}
-
-function classifyKind(text) {
-  const lower = text.toLowerCase();
-  if (/sensitive|private|secret|credential/.test(lower)) return "possible sensitive item";
-  if (/todo|follow-up|next action|action item/.test(lower)) return "operational todo";
-  if (/brand|product|offer|positioning/.test(lower)) return "product/brand";
-  return "client-context";
-}
-
-function summarize(text) {
-  const compact = text
-    .replace(/ao1-intern:curatable/gi, " ")
-    .replace(/```[\s\S]*?```/g, " ")
-    .replace(/^#+\s*/gm, "")
-    .replace(/\s+/g, " ")
-    .trim();
-  return compact.split(/(?<=[.!?])\s+/).slice(0, 2).join(" ").slice(0, 600);
-}
-
 function groupByConcept(items) {
   const grouped = new Map();
   for (const item of items) {
@@ -198,7 +140,7 @@ function renderConceptMarkdown({ conceptPath, items, sync, curate, manifest, man
     "",
     "## Summary",
     "",
-    ...items.flatMap((entry) => [`- ${entry.summary}`, `  - Classification: ${entry.classification}`, `  - Kept because it matched KB concept rules and was marked curatable.`]),
+    ...items.flatMap((entry) => [`- ${entry.summary}`, `  - Classification: ${entry.classification}`, `  - Kept because ${entry.keptReason || "the classifier selected it."}`]),
     "",
     "## Evidence",
     "",

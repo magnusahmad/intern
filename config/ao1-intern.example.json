@@ -7,6 +7,13 @@
   "model_provider": {
     "credential_ref": "keychain://ao1-intern/model-provider"
   },
+  "codex_exec": {
+    "model": "gpt-5.5",
+    "service_tier": "fast",
+    "sandbox": "read-only",
+    "ignore_user_config": true,
+    "ephemeral": true
+  },
   "github": {
     "credential_ref": "keychain://ao1-intern/github"
   }

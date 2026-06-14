@@ -8,7 +8,13 @@ test("test_codex_exec_driver_uses_machine_auth_without_persisting_secrets", () =
     prompt: "Classify this manifest item without printing credentials."
   });
   assert.equal(invocation.command, "codex");
-  assert.deepEqual(invocation.args.slice(0, 3), ["exec", "--cd", "/Users/magnus/Documents/Projects/ao1-kb"]);
+  assert.equal(invocation.args.includes("--ignore-user-config"), true);
+  assert.equal(invocation.args.includes('service_tier="fast"'), true);
+  assert.equal(invocation.args.includes("--model"), true);
+  assert.equal(invocation.args.includes("gpt-5.5"), true);
+  assert.equal(invocation.args.includes("--sandbox"), true);
+  assert.equal(invocation.args.includes("read-only"), true);
+  assert.deepEqual(invocation.args.slice(-2), ["/Users/magnus/Documents/Projects/ao1-kb", "Classify this manifest item without printing credentials."]);
   assert.equal(invocation.args.join(" ").includes("sk-"), false);
   assert.equal(invocation.args.join(" ").includes("OPENAI_API_KEY"), false);
 });
