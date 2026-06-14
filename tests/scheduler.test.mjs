@@ -5,7 +5,7 @@ import test from "node:test";
 import { execFileSync } from "node:child_process";
 import { generateScheduleArtifacts, observerCronForKb } from "../src/scheduler.mjs";
 import { fileLatestSync } from "../src/filing.mjs";
-import { makeTempRepo, writeKbFixture } from "./helpers.mjs";
+import { makeTempRepo, writeKbFixture, gitCommitCount } from "./helpers.mjs";
 
 const runtimeConfig = JSON.parse(fs.readFileSync("config/ao1-intern.example.json", "utf8"));
 
@@ -61,6 +61,26 @@ test("test_manual_trigger_processes_latest_sync_without_cron", () => {
     encoding: "utf8"
   });
   assert.match(result, /"status": "filed"/);
+});
+
+test("test_manual_trigger_honors_commit_policy_manual", () => {
+  const { intern, kb } = makeTempRepo();
+  writeKbFixture(kb);
+  const result = execFileSync(process.execPath, [
+    path.resolve("src/cli.mjs"),
+    "file-latest-sync",
+    "--kb",
+    kb,
+    "--commit-policy",
+    "manual"
+  ], {
+    cwd: intern,
+    encoding: "utf8"
+  });
+
+  assert.match(result, /"status": "filed"/);
+  assert.match(result, /"manual-commit-policy"/);
+  assert.equal(gitCommitCount(intern), 0);
 });
 
 test("test_scheduler_lock_prevents_overlapping_runs", () => {

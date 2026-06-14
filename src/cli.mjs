@@ -30,6 +30,7 @@ try {
       repoPath: process.cwd(),
       runId: args.run_id || null,
       commit: args.commit !== "false",
+      commitPolicy: args.commit_policy || config.filing?.commit_policy || "per-run",
       permissionsManifest,
       classifier
     });
@@ -124,7 +125,7 @@ function loadPermissionsManifest(config, args) {
 
 function usage() {
   console.log(`Usage:
-  npm run intern -- file-latest-sync --kb /path/to/kb [--run-id <id>] [--classifier heuristic|codex] [--config <path>] [--permissions <path>]
+  npm run intern -- file-latest-sync --kb /path/to/kb [--run-id <id>] [--classifier heuristic|codex] [--config <path>] [--permissions <path>] [--commit-policy per-run|manual]
   npm run intern -- schedule-artifacts --kb /path/to/kb [--config <path>] [--out-dir <path>]
   npm run intern -- policy-artifacts [--permissions <path>] [--config <path>] [--out-dir <path>]
   npm run intern -- runtime-probe [--config <path>]

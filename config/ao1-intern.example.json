@@ -5,6 +5,9 @@
   "runs_dir": "runs",
   "permissions_path": "config/permissions.example.json",
   "classifier": "hermes-codex",
+  "filing": {
+    "commit_policy": "per-run"
+  },
   "model_provider": {
     "credential_ref": "keychain://ao1-intern/model-provider"
   },

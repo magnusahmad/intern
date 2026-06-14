@@ -14,9 +14,11 @@ export function fileLatestSync({
   runsDir = path.join(repoPath, "runs"),
   runId = null,
   commit = true,
+  commitPolicy = "per-run",
   classifier = heuristicClassifyItems,
   permissionsManifest = null
 }) {
+  const resolvedCommitPolicy = resolveCommitPolicy({ commit, commitPolicy });
   const checkpointPath = path.join(stateDir, "checkpoint.json");
   const lock = acquireLock(stateDir);
   if (!lock.acquired) {
@@ -83,8 +85,8 @@ export function fileLatestSync({
     };
     writeJson(checkpointPath, checkpoint);
 
-    let commitResult = null;
-    if (commit) {
+    let commitResult = { status: "skipped", reason: "manual-commit-policy" };
+    if (resolvedCommitPolicy === "per-run") {
       commitResult = commitOutputs(repoPath, outputs);
     }
 
@@ -92,6 +94,13 @@ export function fileLatestSync({
   } finally {
     releaseLock(lock);
   }
+}
+
+function resolveCommitPolicy({ commit, commitPolicy }) {
+  if (commit === false) return "manual";
+  if (commitPolicy === undefined || commitPolicy === null) return "per-run";
+  if (commitPolicy === "per-run" || commitPolicy === "manual") return commitPolicy;
+  throw new Error(`Unsupported commit policy: ${commitPolicy}`);
 }
 
 function acquireLock(stateDir) {

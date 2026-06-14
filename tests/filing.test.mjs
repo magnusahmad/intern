@@ -33,6 +33,50 @@ test("test_latest_sync_report_is_filed_once", () => {
   assert.equal(checkpoint.filed_runs[runId].status, "filed");
 });
 
+test("test_commit_policy_per_run_commits_each_successful_filing_run", () => {
+  const { intern, kb } = makeTempRepo();
+  writeKbFixture(kb, { runId: "2026-06-14T150003-175Z" });
+
+  const first = fileLatestSync({ kbPath: kb, repoPath: intern, commitPolicy: "per-run" });
+  assert.equal(first.status, "filed");
+  assert.equal(first.commit.status, "committed");
+  assert.equal(gitCommitCount(intern), 1);
+
+  writeKbFixture(kb, { runId: "2026-06-15T080003-211Z" });
+  const second = fileLatestSync({ kbPath: kb, repoPath: intern, commitPolicy: "per-run" });
+  assert.equal(second.status, "filed");
+  assert.equal(second.commit.status, "committed");
+  assert.equal(gitCommitCount(intern), 2);
+
+  const repeated = fileLatestSync({ kbPath: kb, repoPath: intern, commitPolicy: "per-run" });
+  assert.equal(repeated.status, "already-filed");
+  assert.equal(gitCommitCount(intern), 2);
+});
+
+test("test_commit_policy_manual_leaves_filed_outputs_uncommitted", () => {
+  const { intern, kb } = makeTempRepo();
+  writeKbFixture(kb);
+
+  const result = fileLatestSync({ kbPath: kb, repoPath: intern, commitPolicy: "manual" });
+
+  assert.equal(result.status, "filed");
+  assert.equal(result.commit.status, "skipped");
+  assert.equal(result.commit.reason, "manual-commit-policy");
+  assert.equal(gitCommitCount(intern), 0);
+  assert.equal(fs.existsSync(result.outputs[0]), true);
+});
+
+test("test_commit_policy_rejects_unknown_values", () => {
+  const { intern, kb } = makeTempRepo();
+  writeKbFixture(kb);
+
+  assert.throws(() => fileLatestSync({
+    kbPath: kb,
+    repoPath: intern,
+    commitPolicy: "daily"
+  }), /Unsupported commit policy/);
+});
+
 test("test_no_filing_when_no_new_curatable_manifest_items", () => {
   const { intern, kb } = makeTempRepo();
   const { runId } = writeKbFixture(kb, { added: 0 });
