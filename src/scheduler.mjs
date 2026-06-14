@@ -8,13 +8,24 @@ export function observerCronForKb(kbPath) {
   return cron;
 }
 
-export function generateScheduleArtifacts({ kbPath, repoPath, outDir = path.join(repoPath, ".ao1-intern", "schedules") }) {
+export function generateScheduleArtifacts({
+  kbPath,
+  repoPath,
+  configPath = path.join(repoPath, "config", "ao1-intern.example.json"),
+  outDir = path.join(repoPath, ".ao1-intern", "schedules")
+}) {
   const cron = observerCronForKb(kbPath);
   fs.mkdirSync(outDir, { recursive: true });
   const logPath = path.join(repoPath, ".ao1-intern", "logs", "observer.log");
   const cronPath = path.join(outDir, "ao1-intern.cron");
   const installPath = path.join(outDir, "INSTALL.md");
-  const command = `cd ${shellQuote(repoPath)} && npm run intern -- file-latest-sync --kb ${shellQuote(kbPath)} >> ${shellQuote(logPath)} 2>&1`;
+  const command = [
+    `cd ${shellQuote(repoPath)}`,
+    "&& npm run intern -- file-latest-sync",
+    `--kb ${shellQuote(kbPath)}`,
+    configPath ? `--config ${shellQuote(configPath)}` : "",
+    `>> ${shellQuote(logPath)} 2>&1`
+  ].filter(Boolean).join(" ");
   fs.writeFileSync(cronPath, `${cron} ${command}\n`);
   fs.writeFileSync(
     installPath,

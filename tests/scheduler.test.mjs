@@ -17,11 +17,16 @@ test("test_scheduler_install_outputs_manual_instructions_without_mutating_cronta
   const { intern, kb } = makeTempRepo();
   writeKbFixture(kb);
   const before = safeCrontab();
-  const result = generateScheduleArtifacts({ kbPath: kb, repoPath: intern });
+  const result = generateScheduleArtifacts({
+    kbPath: kb,
+    repoPath: intern,
+    configPath: path.join(intern, "config", "ao1-intern.example.json")
+  });
   const after = safeCrontab();
 
   assert.equal(after, before);
   assert.match(fs.readFileSync(result.cronPath, "utf8"), /file-latest-sync --kb/);
+  assert.match(fs.readFileSync(result.cronPath, "utf8"), /--config/);
   assert.match(fs.readFileSync(result.installPath, "utf8"), /Manual installation only/);
   assert.match(fs.readFileSync(result.installPath, "utf8"), /crontab/);
 });

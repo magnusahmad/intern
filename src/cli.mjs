@@ -31,16 +31,20 @@ try {
     console.log(JSON.stringify(result, null, 2));
   } else if (command === "schedule-artifacts") {
     const kbPath = required(args.kb, "--kb");
+    const configPath = args.config ? path.resolve(args.config) : undefined;
     const result = generateScheduleArtifacts({
       kbPath,
       repoPath: process.cwd(),
+      configPath,
       outDir: args.out_dir ? path.resolve(args.out_dir) : undefined
     });
     console.log(JSON.stringify(result, null, 2));
   } else if (command === "policy-artifacts") {
     const permissionsPath = path.resolve(args.permissions || "config/permissions.example.json");
+    const config = args.config ? readJson(path.resolve(args.config)) : {};
     const result = writePolicyArtifacts({
       manifest: readJson(permissionsPath),
+      config,
       outDir: args.out_dir ? path.resolve(args.out_dir) : path.join(process.cwd(), ".ao1-intern", "policies")
     });
     console.log(JSON.stringify(result, null, 2));
@@ -87,7 +91,7 @@ function loadConfig(configPath) {
 function usage() {
   console.log(`Usage:
   npm run intern -- file-latest-sync --kb /path/to/kb [--run-id <id>] [--classifier heuristic|codex] [--config <path>]
-  npm run intern -- schedule-artifacts --kb /path/to/kb [--out-dir <path>]
-  npm run intern -- policy-artifacts [--permissions <path>] [--out-dir <path>]
+  npm run intern -- schedule-artifacts --kb /path/to/kb [--config <path>] [--out-dir <path>]
+  npm run intern -- policy-artifacts [--permissions <path>] [--config <path>] [--out-dir <path>]
   npm run intern -- runtime-probe [--config <path>]`);
 }
