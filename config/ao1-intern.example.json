@@ -27,6 +27,21 @@
       "nemoclaw": "nemoclaw",
       "openshell": "/Users/magnus/.local/bin/openshell"
     },
+    "openshell_gateway": {
+      "launch_agent_label": "com.ao1.intern.openshell-gateway",
+      "program": "/Users/magnus/.local/bin/openshell-gateway",
+      "config_path": "/Users/magnus/.config/openshell/ao1-gateway.toml",
+      "docker_host": "unix:///Users/magnus/.docker/run/docker.sock",
+      "tls_cert": "/Users/magnus/.local/state/openshell/ao1-gateway/tls/server/tls.crt",
+      "tls_key": "/Users/magnus/.local/state/openshell/ao1-gateway/tls/server/tls.key",
+      "tls_client_ca": "/Users/magnus/.local/state/openshell/ao1-gateway/tls/ca.crt",
+      "enable_mtls_auth": true,
+      "port": 17670,
+      "run_at_load": true,
+      "keep_alive": true,
+      "stdout_path": "/Users/magnus/Documents/Projects/ao1-intern/.ao1-intern/logs/openshell-gateway.out.log",
+      "stderr_path": "/Users/magnus/Documents/Projects/ao1-intern/.ao1-intern/logs/openshell-gateway.err.log"
+    },
     "macos_sandbox": {
       "npm_command": "/opt/homebrew/bin/npm",
       "ca_bundle": "/opt/homebrew/etc/openssl@3/cert.pem",

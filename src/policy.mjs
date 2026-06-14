@@ -149,28 +149,68 @@ export function generateMacOSSandboxProfile({ brokerPolicy }) {
   return lines.join("\n") + "\n";
 }
 
+export function generateOpenShellGatewayLaunchAgent({ config = {}, repoPath = process.cwd() } = {}) {
+  const gateway = normalizeOpenShellGatewayConfig({ config, repoPath });
+  return [
+    "<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
+    "<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">",
+    "<plist version=\"1.0\">",
+    "<dict>",
+    "  <key>Label</key>",
+    `  <string>${xmlEscape(gateway.label)}</string>`,
+    "  <key>ProgramArguments</key>",
+    "  <array>",
+    ...gateway.programArguments.map((argument) => `    <string>${xmlEscape(argument)}</string>`),
+    "  </array>",
+    "  <key>EnvironmentVariables</key>",
+    "  <dict>",
+    "    <key>DOCKER_HOST</key>",
+    `    <string>${xmlEscape(gateway.dockerHost)}</string>`,
+    "  </dict>",
+    "  <key>WorkingDirectory</key>",
+    `  <string>${xmlEscape(gateway.workingDirectory)}</string>`,
+    "  <key>RunAtLoad</key>",
+    `  ${renderPlistBoolean(gateway.runAtLoad)}`,
+    "  <key>KeepAlive</key>",
+    `  ${renderPlistBoolean(gateway.keepAlive)}`,
+    "  <key>StandardOutPath</key>",
+    `  <string>${xmlEscape(gateway.stdoutPath)}</string>`,
+    "  <key>StandardErrorPath</key>",
+    `  <string>${xmlEscape(gateway.stderrPath)}</string>`,
+    "</dict>",
+    "</plist>"
+  ].join("\n") + "\n";
+}
+
 export function writePolicyArtifacts({ manifest, config = {}, outDir }) {
   fs.mkdirSync(outDir, { recursive: true });
   const policyPath = path.join(outDir, "openshell-policy.json");
   const brokerPolicyPath = path.join(outDir, "host-broker-policy.json");
   const macosSandboxProfilePath = path.join(outDir, "host-broker.sb");
+  const openshellGatewayLaunchAgentPath = path.join(outDir, "com.ao1.intern.openshell-gateway.plist");
   const readmePath = path.join(outDir, "README.md");
   const brokerPolicy = generateHostBrokerPolicy({ manifest, config });
+  const repoPath = inferRepoPathFromPolicyOutDir({ outDir, config });
 
   writeJson(policyPath, generateOpenShellPolicy(manifest));
   writeJson(brokerPolicyPath, brokerPolicy);
   fs.writeFileSync(macosSandboxProfilePath, generateMacOSSandboxProfile({ brokerPolicy }));
-  fs.writeFileSync(readmePath, renderPolicyReadme({ brokerPolicy }));
+  fs.writeFileSync(openshellGatewayLaunchAgentPath, generateOpenShellGatewayLaunchAgent({ config, repoPath }));
+  fs.writeFileSync(readmePath, renderPolicyReadme({
+    brokerPolicy,
+    openshellGatewayLaunchAgent: normalizeOpenShellGatewayConfig({ config, repoPath })
+  }));
 
-  return { policyPath, brokerPolicyPath, macosSandboxProfilePath, readmePath };
+  return { policyPath, brokerPolicyPath, macosSandboxProfilePath, openshellGatewayLaunchAgentPath, readmePath };
 }
 
 function uniquePaths(paths) {
   return [...new Set(paths.filter((entryPath) => entryPath && entryPath !== "*"))];
 }
 
-function renderPolicyReadme({ brokerPolicy }) {
+function renderPolicyReadme({ brokerPolicy, openshellGatewayLaunchAgent }) {
   const npmCommand = brokerPolicy.os_sandbox?.macos?.npm_command || "npm";
+  const launchAgentName = `${openshellGatewayLaunchAgent.label}.plist`;
   return [
     "# AO1 Intern Runtime Policy",
     "",
@@ -187,8 +227,53 @@ function renderPolicyReadme({ brokerPolicy }) {
     "- Confirm `host-broker-policy.json` only allows the reviewed Hermes one-shot and Codex exec paths while those tools run on the host.",
     "- Review `host-broker.sb` as a manual OS-level enforcement profile before any `sandbox-exec` use.",
     `- Example review command: \`sandbox-exec -f host-broker.sb ${npmCommand} run intern -- scheduled-runtime-smoke --config config/ao1-intern.example.json\`.`,
-    "- Remember that generated artifacts are not installed or applied automatically."
+    `- Review \`${launchAgentName}\` before using it as the OpenShell gateway LaunchAgent.`,
+    `- Manual LaunchAgent install command after review: \`launchctl bootstrap gui/$(id -u) ${launchAgentName}\`.`,
+    `- Manual LaunchAgent unload command: \`launchctl bootout gui/$(id -u) ${launchAgentName}\`.`,
+    "- Confirm the LaunchAgent references TLS, Docker socket, and log paths only by local path; do not copy key values into this directory.",
+    "- Remember that generated artifacts are not installed automatically and are not applied automatically."
   ].join("\n") + "\n";
+}
+
+function normalizeOpenShellGatewayConfig({ config = {}, repoPath = process.cwd() } = {}) {
+  const resolvedRepoPath = path.resolve(repoPath);
+  const gateway = config.runtime?.openshell_gateway || {};
+  const program = gateway.program || config.runtime?.commands?.openshell_gateway || "/Users/magnus/.local/bin/openshell-gateway";
+  const programArguments = [program];
+  pushFlag(programArguments, "--config", gateway.config_path || "/Users/magnus/.config/openshell/ao1-gateway.toml");
+  pushFlag(programArguments, "--tls-cert", gateway.tls_cert || "/Users/magnus/.local/state/openshell/ao1-gateway/tls/server/tls.crt");
+  pushFlag(programArguments, "--tls-key", gateway.tls_key || "/Users/magnus/.local/state/openshell/ao1-gateway/tls/server/tls.key");
+  pushFlag(programArguments, "--tls-client-ca", gateway.tls_client_ca || "/Users/magnus/.local/state/openshell/ao1-gateway/tls/ca.crt");
+  pushFlag(programArguments, "--enable-mtls-auth", String(gateway.enable_mtls_auth !== false));
+  pushFlag(programArguments, "--port", String(gateway.port || 17670));
+
+  return {
+    label: gateway.launch_agent_label || "com.ao1.intern.openshell-gateway",
+    programArguments,
+    dockerHost: gateway.docker_host || "unix:///Users/magnus/.docker/run/docker.sock",
+    workingDirectory: gateway.working_directory || resolvedRepoPath,
+    runAtLoad: gateway.run_at_load !== false,
+    keepAlive: gateway.keep_alive !== false,
+    stdoutPath: gateway.stdout_path || path.join(resolvedRepoPath, ".ao1-intern", "logs", "openshell-gateway.out.log"),
+    stderrPath: gateway.stderr_path || path.join(resolvedRepoPath, ".ao1-intern", "logs", "openshell-gateway.err.log")
+  };
+}
+
+function inferRepoPathFromPolicyOutDir({ outDir, config = {} }) {
+  const resolvedOutDir = path.resolve(outDir);
+  if (path.basename(resolvedOutDir) === "policies" && path.basename(path.dirname(resolvedOutDir)) === ".ao1-intern") {
+    return path.dirname(path.dirname(resolvedOutDir));
+  }
+  return config.hermes?.cwd || process.cwd();
+}
+
+function pushFlag(argumentsList, flag, value) {
+  if (value === undefined || value === null || value === "") return;
+  argumentsList.push(flag, String(value));
+}
+
+function renderPlistBoolean(value) {
+  return value ? "<true/>" : "<false/>";
 }
 
 function collectCredentialRefs(value, refs = new Set()) {
@@ -261,4 +346,13 @@ function parentDirectoryLiterals(paths) {
 
 function sandboxString(value) {
   return JSON.stringify(String(value));
+}
+
+function xmlEscape(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll("\"", "&quot;")
+    .replaceAll("'", "&apos;");
 }

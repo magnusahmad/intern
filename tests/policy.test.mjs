@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { generateHostBrokerPolicy, generateMacOSSandboxProfile, generateOpenShellPolicy, writePolicyArtifacts } from "../src/policy.mjs";
+import { generateHostBrokerPolicy, generateMacOSSandboxProfile, generateOpenShellGatewayLaunchAgent, generateOpenShellPolicy, writePolicyArtifacts } from "../src/policy.mjs";
 import { makeTempRepo } from "./helpers.mjs";
 
 const manifest = JSON.parse(fs.readFileSync("config/permissions.example.json", "utf8"));
@@ -84,6 +84,38 @@ test("test_policy_artifacts_include_macos_sandbox_profile_for_host_broker", () =
   assert.equal(generateMacOSSandboxProfile({
     brokerPolicy: generateHostBrokerPolicy({ manifest, config })
   }), profile);
+});
+
+test("test_policy_artifacts_include_reviewed_openshell_gateway_launchagent", () => {
+  const { intern } = makeTempRepo();
+  const config = JSON.parse(fs.readFileSync("config/ao1-intern.example.json", "utf8"));
+  const result = writePolicyArtifacts({
+    manifest,
+    config,
+    outDir: path.join(intern, ".ao1-intern", "policies")
+  });
+
+  assert.equal(fs.existsSync(result.openshellGatewayLaunchAgentPath), true);
+  const plist = fs.readFileSync(result.openshellGatewayLaunchAgentPath, "utf8");
+  assert.match(plist, /com\.ao1\.intern\.openshell-gateway/);
+  assert.match(plist, /\/Users\/magnus\/\.local\/bin\/openshell-gateway/);
+  assert.match(plist, /\/Users\/magnus\/\.config\/openshell\/ao1-gateway\.toml/);
+  assert.match(plist, /\/Users\/magnus\/\.local\/state\/openshell\/ao1-gateway\/tls\/server\/tls\.crt/);
+  assert.match(plist, /\/Users\/magnus\/\.local\/state\/openshell\/ao1-gateway\/tls\/server\/tls\.key/);
+  assert.match(plist, /\/Users\/magnus\/\.local\/state\/openshell\/ao1-gateway\/tls\/ca\.crt/);
+  assert.match(plist, /DOCKER_HOST/);
+  assert.match(plist, /unix:\/\/\/Users\/magnus\/\.docker\/run\/docker\.sock/);
+  assert.match(plist, /\.ao1-intern\/logs\/openshell-gateway\.out\.log/);
+  assert.match(plist, /\.ao1-intern\/logs\/openshell-gateway\.err\.log/);
+  assert.doesNotMatch(plist, /PRIVATE KEY|sk-[A-Za-z0-9_-]{16,}|refresh_token/);
+  assert.match(fs.readFileSync(result.readmePath, "utf8"), /LaunchAgent/);
+  assert.match(fs.readFileSync(result.readmePath, "utf8"), /launchctl bootstrap/);
+  assert.match(fs.readFileSync(result.readmePath, "utf8"), /not installed automatically/);
+
+  assert.equal(generateOpenShellGatewayLaunchAgent({
+    config,
+    repoPath: intern
+  }), plist);
 });
 
 test("test_host_broker_policy_limits_hermes_codex_and_secrets", () => {

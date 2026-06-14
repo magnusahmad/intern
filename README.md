@@ -19,12 +19,19 @@ The schedule command only writes reviewable cron/LaunchAgent artifacts and insta
 
 The default runtime boundary is `host-broker`: the filing path enforces the generated broker policy before spawning Hermes one-shot or Codex exec. This prevents command, flag, cwd, and secret-prompt drift inside the checked-in runtime path.
 
-`policy-artifacts` also writes `host-broker.sb`, a reviewable macOS `sandbox-exec` profile generated from the same host-broker policy. It is manual-only for now: review it before use, and do not install or apply it automatically.
+`policy-artifacts` also writes `host-broker.sb`, a reviewable macOS `sandbox-exec` profile generated from the same host-broker policy, plus `com.ao1.intern.openshell-gateway.plist`, a reviewed LaunchAgent artifact for the local OpenShell gateway. These artifacts are manual-only for now: review them before use, and do not install or apply them automatically.
 
 Manual OS-level smoke after generating policy artifacts:
 
 ```bash
 sandbox-exec -f .ao1-intern/policies/host-broker.sb /opt/homebrew/bin/npm run intern -- scheduled-runtime-smoke --config config/ao1-intern.example.json
+```
+
+Manual OpenShell gateway LaunchAgent install after review:
+
+```bash
+launchctl bootstrap gui/$(id -u) .ao1-intern/policies/com.ao1.intern.openshell-gateway.plist
+launchctl bootout gui/$(id -u) .ao1-intern/policies/com.ao1.intern.openshell-gateway.plist
 ```
 
 ## Local Runtime
@@ -40,7 +47,7 @@ cp config/openshell-gateway.example.toml /Users/magnus/.config/openshell/ao1-gat
 
 Do not commit generated gateway TLS or JWT material. Keep it under local state or Keychain-managed paths.
 
-Start the local gateway manually while dogfooding:
+Start the local gateway manually while dogfooding, or use the generated LaunchAgent after review:
 
 ```bash
 DOCKER_HOST=unix:///Users/magnus/.docker/run/docker.sock /Users/magnus/.local/bin/openshell-gateway \
