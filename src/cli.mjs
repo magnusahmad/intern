@@ -15,7 +15,8 @@ try {
   if (command === "file-latest-sync") {
     const kbPath = required(args.kb, "--kb");
     const config = loadConfig(args.config);
-    const hostBrokerPolicy = buildHostBrokerPolicy(config);
+    const permissionsManifest = loadPermissionsManifest(config, args);
+    const hostBrokerPolicy = buildHostBrokerPolicy(config, args);
     const classifier = selectRuntimeClassifier({
       mode: args.classifier || config.classifier || "heuristic",
       repoPath: args.codex_repo ? path.resolve(args.codex_repo) : kbPath,
@@ -29,6 +30,7 @@ try {
       repoPath: process.cwd(),
       runId: args.run_id || null,
       commit: args.commit !== "false",
+      permissionsManifest,
       classifier
     });
     console.log(JSON.stringify(result, null, 2));
@@ -105,18 +107,24 @@ function loadConfig(configPath) {
   return readJson(path.resolve(configPath));
 }
 
-function buildHostBrokerPolicy(config) {
+function buildHostBrokerPolicy(config, args = {}) {
   if (config.runtime?.execution_boundary !== "host-broker") return null;
-  const permissionsPath = path.resolve(config.permissions_path || "config/permissions.example.json");
+  const permissionsPath = path.resolve(args.permissions || config.permissions_path || "config/permissions.example.json");
   return generateHostBrokerPolicy({
     manifest: readJson(permissionsPath),
     config
   });
 }
 
+function loadPermissionsManifest(config, args) {
+  const permissionsPath = args.permissions || config.permissions_path;
+  if (!permissionsPath) return null;
+  return readJson(path.resolve(permissionsPath));
+}
+
 function usage() {
   console.log(`Usage:
-  npm run intern -- file-latest-sync --kb /path/to/kb [--run-id <id>] [--classifier heuristic|codex] [--config <path>]
+  npm run intern -- file-latest-sync --kb /path/to/kb [--run-id <id>] [--classifier heuristic|codex] [--config <path>] [--permissions <path>]
   npm run intern -- schedule-artifacts --kb /path/to/kb [--config <path>] [--out-dir <path>]
   npm run intern -- policy-artifacts [--permissions <path>] [--config <path>] [--out-dir <path>]
   npm run intern -- runtime-probe [--config <path>]

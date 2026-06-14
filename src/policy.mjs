@@ -3,6 +3,7 @@ import path from "node:path";
 import { writeJson } from "./fs-util.mjs";
 
 export function generateOpenShellPolicy(manifest) {
+  const kbWriteRoots = manifest.kb?.kb_write_enabled === true ? (manifest.kb?.write || []) : [];
   return {
     version: "ao1-intern.openshell-policy.v1",
     identity: {
@@ -16,7 +17,7 @@ export function generateOpenShellPolicy(manifest) {
         ...(manifest.intern_repo?.read || [])
       ]).map((entryPath) => ({ path: entryPath, mode: "read" })),
       write: uniquePaths([
-        ...(manifest.kb?.write || []),
+        ...kbWriteRoots,
         ...(manifest.intern_repo?.write || [])
       ]).map((entryPath) => ({ path: entryPath, mode: "write" })),
       kb_write_enabled: manifest.kb?.kb_write_enabled === true
@@ -36,8 +37,9 @@ export function generateOpenShellPolicy(manifest) {
 }
 
 export function generateHostBrokerPolicy({ manifest, config = {} }) {
+  const kbWriteRoots = manifest.kb?.kb_write_enabled === true ? (manifest.kb?.write || []) : [];
   const writeRoots = uniquePaths([
-    ...(manifest.kb?.write || []),
+    ...kbWriteRoots,
     ...(manifest.intern_repo?.write || [])
   ]).map((entryPath) => ({ path: entryPath, mode: "write" }));
 

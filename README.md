@@ -8,6 +8,7 @@ AO1 dogfood repo for the internal Intern agent. V1 observes AO1 KB syncs, reads 
 npm test
 npm run intern -- file-latest-sync --kb /Users/magnus/Documents/Projects/ao1-kb
 npm run intern -- file-latest-sync --kb /Users/magnus/Documents/Projects/ao1-kb --config config/ao1-intern.example.json
+npm run intern -- file-latest-sync --kb /Users/magnus/Documents/Projects/ao1-kb --config config/ao1-intern.example.json --permissions config/permissions.example.json
 npm run intern -- file-latest-sync --kb /Users/magnus/Documents/Projects/ao1-kb --classifier codex --config config/ao1-intern.example.json
 npm run intern -- schedule-artifacts --kb /Users/magnus/Documents/Projects/ao1-kb --config config/ao1-intern.example.json
 npm run intern -- policy-artifacts --permissions config/permissions.example.json --config config/ao1-intern.example.json
@@ -18,6 +19,8 @@ npm run intern -- scheduled-runtime-smoke --config config/ao1-intern.example.jso
 The schedule command only writes reviewable cron/LaunchAgent artifacts and install instructions. It does not install anything. With the default config, the generated cron command wraps the observer in the reviewed macOS `host-broker.sb` sandbox profile.
 
 The default runtime boundary is `host-broker`: the filing path enforces the generated broker policy before spawning Hermes one-shot or Codex exec. This prevents command, flag, cwd, and secret-prompt drift inside the checked-in runtime path.
+
+Direct KB write-back is disabled by default. To enable it for a reviewed run, set `kb.kb_write_enabled` to `true` and declare an explicit KB write root in the permissions manifest passed with `--permissions`; otherwise filed markdown stays in the intern repo only. When enabled, new KB concept files are created and existing concept files are appended to rather than overwritten.
 
 `policy-artifacts` also writes `host-broker.sb`, a reviewable macOS `sandbox-exec` profile generated from the same host-broker policy, plus `com.ao1.intern.openshell-gateway.plist`, a reviewed LaunchAgent artifact for the local OpenShell gateway. These artifacts are manual-only for now: review them before use, and do not install or apply them automatically.
 

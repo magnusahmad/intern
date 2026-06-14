@@ -1,10 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { safeSlug, writeJson, readJson } from "./fs-util.mjs";
+import { ensureInside, safeSlug, writeJson, readJson } from "./fs-util.mjs";
 import { findLatestSyncRun, hasNewCuratedItems, loadRunManifest } from "./kb-sync.mjs";
 import { loadKbRules } from "./kb-rules.mjs";
 import { heuristicClassifyItems, validateClassifiedItems } from "./classifier.mjs";
+import { assertPermission } from "./permissions.mjs";
 
 export function fileLatestSync({
   kbPath,
@@ -13,7 +14,8 @@ export function fileLatestSync({
   runsDir = path.join(repoPath, "runs"),
   runId = null,
   commit = true,
-  classifier = heuristicClassifyItems
+  classifier = heuristicClassifyItems,
+  permissionsManifest = null
 }) {
   const checkpointPath = path.join(stateDir, "checkpoint.json");
   const lock = acquireLock(stateDir);
@@ -26,7 +28,7 @@ export function fileLatestSync({
     const { sync, curate } = findLatestSyncRun(kbPath, runId);
 
     if (checkpoint.filed_runs?.[sync.run_id]) {
-      return { status: "already-filed", runId: sync.run_id, outputs: [] };
+      return { status: "already-filed", runId: sync.run_id, outputs: [], kbWrites: [] };
     }
 
     if (!hasNewCuratedItems(curate)) {
@@ -35,7 +37,7 @@ export function fileLatestSync({
         at: new Date().toISOString()
       };
       writeJson(checkpointPath, checkpoint);
-      return { status: "no-curatable-items", runId: sync.run_id, outputs: [] };
+      return { status: "no-curatable-items", runId: sync.run_id, outputs: [], kbWrites: [] };
     }
 
     const rules = loadKbRules(kbPath);
@@ -48,7 +50,7 @@ export function fileLatestSync({
         manifest_path: manifestPath
       };
       writeJson(checkpointPath, checkpoint);
-      return { status: "no-curatable-items", runId: sync.run_id, outputs: [] };
+      return { status: "no-curatable-items", runId: sync.run_id, outputs: [], kbWrites: [] };
     }
 
     const grouped = groupByConcept(classified);
@@ -61,11 +63,22 @@ export function fileLatestSync({
       fs.writeFileSync(file, renderConceptMarkdown({ conceptPath, items: conceptItems, sync, curate, manifest, manifestPath, rules }));
       outputs.push(file);
     }
+    const kbWrites = writeKbOutputs({
+      kbPath,
+      permissionsManifest,
+      grouped,
+      sync,
+      curate,
+      manifest,
+      manifestPath,
+      rules
+    });
 
     checkpoint.filed_runs[sync.run_id] = {
       status: "filed",
       at: new Date().toISOString(),
       outputs: outputs.map((file) => path.relative(repoPath, file)),
+      kb_writes: kbWrites.map((write) => write.relativePath),
       manifest_path: manifestPath
     };
     writeJson(checkpointPath, checkpoint);
@@ -75,7 +88,7 @@ export function fileLatestSync({
       commitResult = commitOutputs(repoPath, outputs);
     }
 
-    return { status: "filed", runId: sync.run_id, outputs, commit: commitResult };
+    return { status: "filed", runId: sync.run_id, outputs, kbWrites, commit: commitResult };
   } finally {
     releaseLock(lock);
   }
@@ -121,17 +134,64 @@ function groupByConcept(items) {
   return grouped;
 }
 
-function renderConceptMarkdown({ conceptPath, items, sync, curate, manifest, manifestPath, rules }) {
+function writeKbOutputs({ kbPath, permissionsManifest, grouped, sync, curate, manifest, manifestPath, rules }) {
+  if (permissionsManifest?.kb?.kb_write_enabled !== true) return [];
+
+  const writes = [];
+  for (const [conceptPath, conceptItems] of grouped.entries()) {
+    const target = path.resolve(kbPath, conceptPath);
+    if (!ensureInside(kbPath, target)) {
+      throw new Error(`KB write target escapes KB root: ${conceptPath}`);
+    }
+    assertPermission(permissionsManifest, {
+      type: "file-write",
+      kbWrite: true,
+      path: target
+    });
+
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    const mode = fs.existsSync(target) ? "appended" : "created";
+    const markdown = renderConceptMarkdown({
+      conceptPath,
+      items: conceptItems,
+      sync,
+      curate,
+      manifest,
+      manifestPath,
+      rules,
+      destination: mode === "appended" ? "kb-append" : "kb"
+    });
+
+    if (mode === "appended") {
+      const existing = fs.readFileSync(target, "utf8");
+      fs.writeFileSync(target, `${existing.trimEnd()}\n\n${markdown}`);
+    } else {
+      fs.writeFileSync(target, markdown);
+    }
+
+    writes.push({
+      path: target,
+      relativePath: path.relative(kbPath, target),
+      mode
+    });
+  }
+  return writes;
+}
+
+function renderConceptMarkdown({ conceptPath, items, sync, curate, manifest, manifestPath, rules, destination = "intern" }) {
   const sources = items.map(({ item }) => `${item.source || "unknown"}:${item.source_item_id || item.title || "unknown"}`);
   const related = conceptPath.split("/").slice(0, -1).join("/") || "shared";
+  const appendToKb = destination === "kb-append";
   const body = [
-    `# ${titleFromConcept(conceptPath)}`,
+    appendToKb ? `## Intern Filing: ${sync.run_id}` : `# ${titleFromConcept(conceptPath)}`,
     "",
-    "Owner: AO1",
-    `Last reviewed: ${new Date().toISOString().slice(0, 10)}`,
-    `Sources: ${sources.join(", ")}`,
-    `Related: ${related}`,
-    "",
+    ...(appendToKb ? [] : [
+      "Owner: AO1",
+      `Last reviewed: ${new Date().toISOString().slice(0, 10)}`,
+      `Sources: ${sources.join(", ")}`,
+      `Related: ${related}`,
+      ""
+    ]),
     `Target concept: ${conceptPath}`,
     `Sync run: ${sync.run_id}`,
     `Raw manifest: ${manifestPath}`,
@@ -152,9 +212,16 @@ function renderConceptMarkdown({ conceptPath, items, sync, curate, manifest, man
     "",
     "## Routing Notes",
     "",
-    "This file is staged in the Intern repo for review. The intended destination is the AO1 KB once `kb_write_enabled` is approved."
+    routingNote(destination)
   ];
   return `${body.join("\n")}\n`;
+}
+
+function routingNote(destination) {
+  if (destination === "kb" || destination === "kb-append") {
+    return "This content was written directly to the AO1 KB because `kb_write_enabled` was enabled and the target path matched a declared KB write root.";
+  }
+  return "This file is staged in the Intern repo for review. The intended destination is the AO1 KB once `kb_write_enabled` is approved.";
 }
 
 function titleFromConcept(conceptPath) {

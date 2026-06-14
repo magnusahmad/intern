@@ -137,3 +137,40 @@ test("test_host_broker_policy_limits_hermes_codex_and_secrets", () => {
   ].sort());
   assert.doesNotMatch(JSON.stringify(policy), /sk-[A-Za-z0-9_-]{16,}|PRIVATE KEY|refresh_token/);
 });
+
+test("test_policy_generation_excludes_kb_write_roots_until_switch_enabled", () => {
+  const config = JSON.parse(fs.readFileSync("config/ao1-intern.example.json", "utf8"));
+  const kbWritePath = "/Users/magnus/Documents/Projects/ao1-kb";
+  const disabledManifest = {
+    ...manifest,
+    kb: {
+      ...manifest.kb,
+      write: [kbWritePath],
+      kb_write_enabled: false
+    }
+  };
+  const enabledManifest = {
+    ...manifest,
+    kb: {
+      ...manifest.kb,
+      write: [kbWritePath],
+      kb_write_enabled: true
+    }
+  };
+
+  const disabledOpenShell = generateOpenShellPolicy(disabledManifest);
+  assert.equal(disabledOpenShell.filesystem.write.some((entry) => entry.path === kbWritePath), false);
+  assert.equal(disabledOpenShell.filesystem.kb_write_enabled, false);
+
+  const disabledBroker = generateHostBrokerPolicy({ manifest: disabledManifest, config });
+  assert.equal(disabledBroker.filesystem.write.some((entry) => entry.path === kbWritePath), false);
+  assert.equal(disabledBroker.filesystem.kb_write_enabled, false);
+
+  const enabledOpenShell = generateOpenShellPolicy(enabledManifest);
+  assert.equal(enabledOpenShell.filesystem.write.some((entry) => entry.path === kbWritePath), true);
+  assert.equal(enabledOpenShell.filesystem.kb_write_enabled, true);
+
+  const enabledBroker = generateHostBrokerPolicy({ manifest: enabledManifest, config });
+  assert.equal(enabledBroker.filesystem.write.some((entry) => entry.path === kbWritePath), true);
+  assert.equal(enabledBroker.filesystem.kb_write_enabled, true);
+});
