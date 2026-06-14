@@ -39,10 +39,11 @@ test("test_manual_trigger_processes_latest_sync_without_cron", () => {
 test("test_scheduler_lock_prevents_overlapping_runs", () => {
   const { intern, kb } = makeTempRepo();
   writeKbFixture(kb);
-  const first = fileLatestSync({ kbPath: kb, repoPath: intern, commit: false });
-  const second = fileLatestSync({ kbPath: kb, repoPath: intern, commit: false });
-  assert.equal(first.status, "filed");
-  assert.equal(second.status, "already-filed");
+  const lockDir = path.join(intern, ".ao1-intern", "locks");
+  fs.mkdirSync(lockDir, { recursive: true });
+  fs.writeFileSync(path.join(lockDir, "scheduler.lock"), "123\n");
+  const result = fileLatestSync({ kbPath: kb, repoPath: intern, commit: false });
+  assert.equal(result.status, "already-running");
 });
 
 function safeCrontab() {

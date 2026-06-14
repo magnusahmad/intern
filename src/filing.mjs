@@ -14,60 +14,93 @@ export function fileLatestSync({
   commit = true
 }) {
   const checkpointPath = path.join(stateDir, "checkpoint.json");
-  const checkpoint = loadCheckpoint(checkpointPath);
-  const { sync, curate } = findLatestSyncRun(kbPath, runId);
-
-  if (checkpoint.filed_runs?.[sync.run_id]) {
-    return { status: "already-filed", runId: sync.run_id, outputs: [] };
+  const lock = acquireLock(stateDir);
+  if (!lock.acquired) {
+    return { status: "already-running", runId: null, outputs: [] };
   }
 
-  if (!hasNewCuratedItems(curate)) {
-    checkpoint.filed_runs[sync.run_id] = {
-      status: "no-curatable-items",
-      at: new Date().toISOString()
-    };
-    writeJson(checkpointPath, checkpoint);
-    return { status: "no-curatable-items", runId: sync.run_id, outputs: [] };
-  }
+  try {
+    const checkpoint = loadCheckpoint(checkpointPath);
+    const { sync, curate } = findLatestSyncRun(kbPath, runId);
 
-  const rules = loadKbRules(kbPath);
-  const { manifestPath, manifest, items } = loadRunManifest(kbPath, sync);
-  const classified = classifyItems(items, rules);
-  if (!classified.length) {
+    if (checkpoint.filed_runs?.[sync.run_id]) {
+      return { status: "already-filed", runId: sync.run_id, outputs: [] };
+    }
+
+    if (!hasNewCuratedItems(curate)) {
+      checkpoint.filed_runs[sync.run_id] = {
+        status: "no-curatable-items",
+        at: new Date().toISOString()
+      };
+      writeJson(checkpointPath, checkpoint);
+      return { status: "no-curatable-items", runId: sync.run_id, outputs: [] };
+    }
+
+    const rules = loadKbRules(kbPath);
+    const { manifestPath, manifest, items } = loadRunManifest(kbPath, sync);
+    const classified = classifyItems(items, rules);
+    if (!classified.length) {
+      checkpoint.filed_runs[sync.run_id] = {
+        status: "no-curatable-items",
+        at: new Date().toISOString(),
+        manifest_path: manifestPath
+      };
+      writeJson(checkpointPath, checkpoint);
+      return { status: "no-curatable-items", runId: sync.run_id, outputs: [] };
+    }
+
+    const grouped = groupByConcept(classified);
+    const date = sync.run_id.slice(0, 10);
+    const outputRoot = path.join(runsDir, date, sync.run_id);
+    fs.mkdirSync(outputRoot, { recursive: true });
+    const outputs = [];
+    for (const [conceptPath, conceptItems] of grouped.entries()) {
+      const file = path.join(outputRoot, `${safeSlug(conceptPath.replace(/\.md$/, ""))}.md`);
+      fs.writeFileSync(file, renderConceptMarkdown({ conceptPath, items: conceptItems, sync, curate, manifest, manifestPath, rules }));
+      outputs.push(file);
+    }
+
     checkpoint.filed_runs[sync.run_id] = {
-      status: "no-curatable-items",
+      status: "filed",
       at: new Date().toISOString(),
+      outputs: outputs.map((file) => path.relative(repoPath, file)),
       manifest_path: manifestPath
     };
     writeJson(checkpointPath, checkpoint);
-    return { status: "no-curatable-items", runId: sync.run_id, outputs: [] };
+
+    let commitResult = null;
+    if (commit) {
+      commitResult = commitOutputs(repoPath, outputs);
+    }
+
+    return { status: "filed", runId: sync.run_id, outputs, commit: commitResult };
+  } finally {
+    releaseLock(lock);
   }
+}
 
-  const grouped = groupByConcept(classified);
-  const date = sync.run_id.slice(0, 10);
-  const outputRoot = path.join(runsDir, date, sync.run_id);
-  fs.mkdirSync(outputRoot, { recursive: true });
-  const outputs = [];
-  for (const [conceptPath, conceptItems] of grouped.entries()) {
-    const file = path.join(outputRoot, `${safeSlug(conceptPath.replace(/\.md$/, ""))}.md`);
-    fs.writeFileSync(file, renderConceptMarkdown({ conceptPath, items: conceptItems, sync, curate, manifest, manifestPath, rules }));
-    outputs.push(file);
+function acquireLock(stateDir) {
+  const lockDir = path.join(stateDir, "locks");
+  const lockPath = path.join(lockDir, "scheduler.lock");
+  fs.mkdirSync(lockDir, { recursive: true });
+  try {
+    const fd = fs.openSync(lockPath, "wx");
+    fs.writeFileSync(fd, `${process.pid}\n`);
+    fs.closeSync(fd);
+    return { acquired: true, path: lockPath };
+  } catch (error) {
+    if (error.code === "EEXIST") return { acquired: false, path: lockPath };
+    throw error;
   }
+}
 
-  checkpoint.filed_runs[sync.run_id] = {
-    status: "filed",
-    at: new Date().toISOString(),
-    outputs: outputs.map((file) => path.relative(repoPath, file)),
-    manifest_path: manifestPath
-  };
-  writeJson(checkpointPath, checkpoint);
-
-  let commitResult = null;
-  if (commit) {
-    commitResult = commitOutputs(repoPath, [...outputs, checkpointPath]);
+function releaseLock(lock) {
+  if (!lock.acquired) return;
+  try {
+    fs.unlinkSync(lock.path);
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error;
   }
-
-  return { status: "filed", runId: sync.run_id, outputs, commit: commitResult };
 }
 
 function loadCheckpoint(file) {
