@@ -31,6 +31,8 @@ test("test_review_artifacts_reports_manual_install_readiness", () => {
   assert.equal(result.status, "passed");
   assert.equal(result.checks.every((check) => check.status === "passed"), true);
   assert.equal(result.checks.some((check) => check.name === "schedule artifact: com.ao1.intern.observer.plist"), true);
+  assert.equal(result.checks.some((check) => check.name === "host broker sandbox LaunchServices lookup"), true);
+  assert.equal(result.checks.some((check) => check.name === "host broker sandbox user text encoding"), true);
   assert.equal(result.checks.some((check) => check.name === "observer LaunchAgent sandbox profile"), true);
   assert.equal(result.checks.some((check) => check.name === "observer LaunchAgent direct sandbox command"), true);
   assert.equal(result.checks.some((check) => check.name === "observer LaunchAgent environment"), true);

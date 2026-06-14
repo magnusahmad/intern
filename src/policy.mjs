@@ -138,6 +138,10 @@ export function generateMacOSSandboxProfile({ brokerPolicy }) {
     ";; Generated from host-broker-policy.json; apply manually with sandbox-exec only after review.",
     "(allow process*)",
     "(allow sysctl-read)",
+    ";; Required so launchd-spawned Node can resolve file metadata without blocking in fs.open.",
+    "(allow mach-lookup",
+    "  (global-name \"com.apple.coreservices.launchservicesd\")",
+    ")",
     "(allow file-read*",
     ...renderSandboxReadFilters(readRoots),
     ")",
@@ -332,6 +336,7 @@ function renderSandboxReadFilters(paths) {
   const resolvedPaths = uniquePaths(paths.map((entryPath) => path.resolve(entryPath)));
   return [
     ...parentDirectoryLiterals(resolvedPaths).map((entryPath) => `  (literal ${sandboxString(entryPath)})`),
+    ...resolvedPaths.map((entryPath) => `  (literal ${sandboxString(entryPath)})`),
     ...renderSandboxPathFilters(resolvedPaths)
   ];
 }

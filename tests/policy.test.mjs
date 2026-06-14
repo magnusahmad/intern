@@ -68,6 +68,7 @@ test("test_policy_artifacts_include_macos_sandbox_profile_for_host_broker", () =
   assert.match(profile, /\/Users\/magnus\/\.codex/);
   assert.match(profile, /\/Users\/magnus\/\.hermes\/hermes-agent/);
   assert.match(profile, /\/Users\/magnus\/\.local\/share\/uv\/python/);
+  assert.match(profile, /\(literal "\/Users\/magnus\/\.CFUserTextEncoding"\)/);
   assert.match(profile, /\(allow file-map-executable/);
   assert.match(profile, /file-write\*[\s\S]*\/Users\/magnus\/\.codex/);
   assert.match(profile, /file-write\*[\s\S]*\/Users\/magnus\/\.hermes\/logs/);
@@ -78,6 +79,7 @@ test("test_policy_artifacts_include_macos_sandbox_profile_for_host_broker", () =
   assert.match(profile, /Declared network targets: model-provider, github\.com:read/);
   assert.match(profile, /remote unix-socket/);
   assert.match(profile, /codex-ipc/);
+  assert.match(profile, /\(allow mach-lookup[\s\S]*com\.apple\.coreservices\.launchservicesd/);
   assert.doesNotMatch(profile, /file-write\*[\s\S]*\/Users\/magnus\/Documents\/Projects\/ao1-kb/);
   assert.match(fs.readFileSync(result.readmePath, "utf8"), /sandbox-exec/);
   assert.match(fs.readFileSync(result.readmePath, "utf8"), /manual OS-level enforcement/);

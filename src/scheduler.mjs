@@ -71,7 +71,7 @@ export function generateScheduleArtifacts({
       "",
       `- \`${nodeCommand}\``,
       "",
-      "The generator cannot grant this permission. Without it, launchd may hang while Node opens repo files. Run the machine preflight before bootstrapping:",
+      "The generator cannot grant this permission. Without it, launchd may hang while Node opens repo files. Run the machine preflight before bootstrapping; it submits a one-shot launchd Node read probe and must return `passed`:",
       "",
       "```bash",
       `npm run intern -- launchd-preflight --kb ${shellQuote(kbPath)}${configPath ? ` --config ${shellQuote(configPath)}` : ""}`,

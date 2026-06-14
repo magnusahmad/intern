@@ -21,7 +21,7 @@ npm run intern -- launchd-preflight --kb /Users/magnus/Documents/Projects/ao1-kb
 
 The schedule command only writes reviewable cron/LaunchAgent artifacts and install instructions. It does not install anything. With the default config, the generated scheduled command wraps a direct `node src/cli.mjs` observer in the reviewed macOS `host-broker.sb` sandbox profile copied to `runtime.macos_sandbox.launch_agent_profile_path`, so launchd can apply it without an npm wrapper.
 
-On macOS, the LaunchAgent also needs the scheduled Node runtime to have Full Disk Access when the Intern repo and KB live under `~/Documents`. The generated install guide names the exact runtime path from config, currently `/opt/homebrew/bin/node`; without that human-granted OS permission, launchd can hang before Node reads the repo entrypoint. `launchd-preflight` exits nonzero until that manual OS permission is addressed.
+On macOS, the LaunchAgent also needs the scheduled Node runtime to have Full Disk Access when the Intern repo and KB live under `~/Documents`. The generated install guide names the exact runtime path from config, currently `/opt/homebrew/bin/node`; without that human-granted OS permission, launchd can hang before Node reads the repo entrypoint. `launchd-preflight` submits a one-shot launchd job that runs the configured Node runtime against repo and KB sentinel files, removes that job on success or timeout, and exits nonzero until launchd-spawned Node can read them.
 
 The default runtime boundary is `host-broker`: the filing path enforces the generated broker policy before spawning Hermes one-shot or Codex exec. This prevents command, flag, cwd, and secret-prompt drift inside the checked-in runtime path.
 
@@ -33,7 +33,9 @@ Direct KB write-back is disabled by default. To enable it for a reviewed run, se
 
 `policy-artifacts` also writes `host-broker.sb`, a reviewable macOS `sandbox-exec` profile generated from the same host-broker policy, plus `com.ao1.intern.openshell-gateway.plist`, a reviewed LaunchAgent artifact for the local OpenShell gateway. These artifacts are manual-only for now: review them before use, and do not install or apply them automatically.
 
-Run `review-artifacts` after generating schedule and policy artifacts. It checks that required artifacts exist, generated files contain no secret-like values, KB writes remain disabled, write roots stay in the Intern repo, Codex remains read-only/user-config-isolated/ephemeral, and the scheduled cron/LaunchAgent commands use the reviewed sandbox wrapper. This is a machine gate, not a substitute for human review before install.
+The generated macOS sandbox profile includes narrow runtime reads required by launchd-spawned Node on this machine, including the LaunchServices lookup and `/Users/magnus/.CFUserTextEncoding`. Keep these as explicit reviewed permissions instead of replacing them with broad home-directory reads.
+
+Run `review-artifacts` after generating schedule and policy artifacts. It checks that required artifacts exist, generated files contain no secret-like values, KB writes remain disabled, write roots stay in the Intern repo, Codex remains read-only/user-config-isolated/ephemeral, the scheduled cron/LaunchAgent commands use the reviewed sandbox wrapper, and the macOS sandbox profile includes the launchd runtime metadata permissions. This is a machine gate, not a substitute for human review before install.
 
 Manual OS-level smoke after generating policy artifacts:
 

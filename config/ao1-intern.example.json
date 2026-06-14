@@ -74,7 +74,8 @@
         "/Users/magnus/.hermes/logs"
       ],
       "system_read_roots": [
-        "/private/var/select/sh"
+        "/private/var/select/sh",
+        "/Users/magnus/.CFUserTextEncoding"
       ],
       "temp_write_roots": [
         "/private/tmp",

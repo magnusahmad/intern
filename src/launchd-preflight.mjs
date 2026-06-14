@@ -1,22 +1,28 @@
+import { execFileSync } from "node:child_process";
+import crypto from "node:crypto";
+import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
 const PROTECTED_HOME_DIRS = ["Documents", "Desktop", "Downloads"];
+const LAUNCHD_PROBE_MARKER = "AO1_LAUNCHD_NODE_READ_OK";
 
 export function checkLaunchdPreflight({
   repoPath,
   kbPath,
   config = {},
   platform = process.platform,
-  homePath = os.homedir()
+  homePath = os.homedir(),
+  accessProbe = probeLaunchdNodeReadAccess
 } = {}) {
   const nodeCommand = scheduledNodeCommand({ config });
+  const nodeResolvedPath = resolveRealPath(nodeCommand);
   const resolvedRepoPath = repoPath ? path.resolve(repoPath) : process.cwd();
   const resolvedKbPath = kbPath ? path.resolve(kbPath) : null;
   const resolvedHome = path.resolve(homePath);
 
   if (platform !== "darwin") {
-    return passed({ platform, nodeCommand });
+    return passed({ platform, nodeCommand, nodeResolvedPath });
   }
 
   const protectedRoots = PROTECTED_HOME_DIRS.map((entry) => path.join(resolvedHome, entry));
@@ -28,7 +34,26 @@ export function checkLaunchdPreflight({
   )));
 
   if (protectedPaths.length === 0) {
-    return passed({ platform, nodeCommand, protectedRoots });
+    return passed({ platform, nodeCommand, nodeResolvedPath, protectedRoots });
+  }
+
+  const targets = launchdAccessTargets({ repoPath: resolvedRepoPath, kbPath: resolvedKbPath });
+  const probe = accessProbe({
+    probeKind: "launchd-node-read",
+    nodeCommand,
+    nodeResolvedPath,
+    targets
+  });
+
+  if (probe.ok) {
+    return passed({
+      platform,
+      nodeCommand,
+      nodeResolvedPath,
+      protectedRoots,
+      protectedPaths,
+      accessProbe: probe
+    });
   }
 
   return {
@@ -36,25 +61,29 @@ export function checkLaunchdPreflight({
     ready: false,
     platform,
     nodeCommand,
+    nodeResolvedPath,
     protectedRoots,
     protectedPaths,
+    accessProbe: probe,
     blockers: [
-      `macOS Full Disk Access is required for ${nodeCommand} before launchd can read protected repo paths.`
+      `macOS Full Disk Access is required for launchd-spawned Node (${nodeCommand}) before it can read protected repo paths.`
     ],
     manualActions: [
-      `Grant Full Disk Access to ${nodeCommand} in System Settings > Privacy & Security > Full Disk Access, then rerun launchd-preflight.`
+      `Grant Full Disk Access to ${formatNodeForManualAction({ nodeCommand, nodeResolvedPath })} in System Settings > Privacy & Security > Full Disk Access, then rerun launchd-preflight.`
     ]
   };
 }
 
-function passed({ platform, nodeCommand, protectedRoots = [] }) {
+function passed({ platform, nodeCommand, nodeResolvedPath = null, protectedRoots = [], protectedPaths = [], accessProbe = null }) {
   return {
     status: "passed",
     ready: true,
     platform,
     nodeCommand,
+    nodeResolvedPath,
     protectedRoots,
-    protectedPaths: [],
+    protectedPaths,
+    accessProbe,
     blockers: [],
     manualActions: []
   };
@@ -71,4 +100,168 @@ function isInside(parent, candidate) {
 
 function unique(values) {
   return [...new Set(values)];
+}
+
+function launchdAccessTargets({ repoPath, kbPath }) {
+  return [
+    path.join(repoPath, "src", "cli.mjs"),
+    kbPath ? path.join(kbPath, "index.md") : null
+  ].filter(Boolean);
+}
+
+export function probeLaunchdNodeReadAccess({
+  nodeCommand,
+  nodeResolvedPath = null,
+  targets,
+  launchctlCommand = "launchctl",
+  timeoutMs = 8000
+}) {
+  const label = `com.ao1.intern.launchd-preflight.${process.pid}.${Date.now()}.${crypto.randomUUID()}`;
+  const stdoutPath = path.join(os.tmpdir(), `${label}.out`);
+  const stderrPath = path.join(os.tmpdir(), `${label}.err`);
+  const script = [
+    "const fs = require('node:fs');",
+    "const targets = JSON.parse(process.argv[1]);",
+    "for (const target of targets) {",
+    "  fs.readFileSync(target);",
+    "}",
+    `process.stdout.write(${JSON.stringify(LAUNCHD_PROBE_MARKER)});`
+  ].join("\n");
+
+  try {
+    execFileSync(launchctlCommand, [
+      "submit",
+      "-l",
+      label,
+      "-o",
+      stdoutPath,
+      "-e",
+      stderrPath,
+      "--",
+      nodeCommand,
+      "-e",
+      script,
+      JSON.stringify(targets)
+    ], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"]
+    });
+  } catch (error) {
+    cleanupLaunchdProbe({ launchctlCommand, label });
+    return launchdProbeFailure({
+      label,
+      nodeCommand,
+      nodeResolvedPath,
+      targets,
+      error: {
+        phase: "submit",
+        code: error.code || null,
+        status: error.status ?? null,
+        signal: error.signal || null,
+        stderr: String(error.stderr || "").trim()
+      }
+    });
+  }
+
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const stdout = readOptionalFile(stdoutPath);
+    if (stdout.includes(LAUNCHD_PROBE_MARKER)) {
+      cleanupLaunchdProbe({ launchctlCommand, label, stdoutPath, stderrPath });
+      return {
+        ok: true,
+        probeKind: "launchd-node-read",
+        label,
+        nodeCommand,
+        nodeResolvedPath,
+        targets
+      };
+    }
+    sleepSync(200);
+  }
+
+  const launchdState = readLaunchdState({ launchctlCommand, label });
+  cleanupLaunchdProbe({ launchctlCommand, label });
+  return launchdProbeFailure({
+    label,
+    nodeCommand,
+    nodeResolvedPath,
+    targets,
+    stdoutPath,
+    stderrPath,
+    launchdState,
+    error: {
+      phase: "timeout",
+      timeoutMs
+    }
+  });
+}
+
+function launchdProbeFailure({ label, nodeCommand, nodeResolvedPath, targets, stdoutPath = null, stderrPath = null, launchdState = null, error }) {
+  return {
+    ok: false,
+    probeKind: "launchd-node-read",
+    label,
+    nodeCommand,
+    nodeResolvedPath,
+    targets,
+    error,
+    stdout: stdoutPath ? readOptionalFile(stdoutPath).trim() : "",
+    stderr: stderrPath ? readOptionalFile(stderrPath).trim() : "",
+    launchdState
+  };
+}
+
+function readLaunchdState({ launchctlCommand, label }) {
+  try {
+    return execFileSync(launchctlCommand, ["print", `gui/${os.userInfo().uid}/${label}`], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"]
+    });
+  } catch (error) {
+    return String(error.stderr || error.message || "").trim();
+  }
+}
+
+function resolveRealPath(candidatePath) {
+  try {
+    return fs.realpathSync(candidatePath);
+  } catch {
+    return null;
+  }
+}
+
+function formatNodeForManualAction({ nodeCommand, nodeResolvedPath }) {
+  if (!nodeResolvedPath || nodeResolvedPath === nodeCommand) return nodeCommand;
+  return `${nodeCommand} (${nodeResolvedPath})`;
+}
+
+function cleanupLaunchdProbe({ launchctlCommand, label, stdoutPath = null, stderrPath = null }) {
+  try {
+    execFileSync(launchctlCommand, ["remove", label], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"]
+    });
+  } catch {
+    // Best-effort cleanup; a completed submit job may already be gone.
+  }
+  for (const file of [stdoutPath, stderrPath].filter(Boolean)) {
+    try {
+      fs.rmSync(file, { force: true });
+    } catch {
+      // Best-effort temp-file cleanup.
+    }
+  }
+}
+
+function readOptionalFile(file) {
+  try {
+    return fs.readFileSync(file, "utf8");
+  } catch {
+    return "";
+  }
+}
+
+function sleepSync(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 }

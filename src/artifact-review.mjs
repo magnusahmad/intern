@@ -35,6 +35,9 @@ export function reviewArtifacts({
     file: path.join(policyDir, "host-broker-policy.json"),
     repoPath
   }));
+  checks.push(...checkMacOSSandboxProfile({
+    file: path.join(policyDir, "host-broker.sb")
+  }));
   checks.push(...checkSchedule({
     file: path.join(scheduleDir, "ao1-intern.cron"),
     kbPath,
@@ -127,6 +130,15 @@ function checkHostBrokerPolicy({ file, repoPath }) {
     expectEqual("Codex sandbox", codex.sandbox, "read-only", "Codex must stay read-only."),
     expectEqual("Codex user config isolation", codex.ignore_user_config, true),
     expectEqual("Codex ephemeral mode", codex.ephemeral, true)
+  ];
+}
+
+function checkMacOSSandboxProfile({ file }) {
+  if (!fs.existsSync(file)) return [failed("host broker sandbox profile", `${file} is missing`)];
+  const profile = fs.readFileSync(file, "utf8");
+  return [
+    expectTrue("host broker sandbox LaunchServices lookup", profile.includes("(allow mach-lookup") && profile.includes("com.apple.coreservices.launchservicesd"), "macOS sandbox profile must allow the LaunchServices lookup required by launchd-spawned Node file opens."),
+    expectTrue("host broker sandbox user text encoding", profile.includes("(literal \"/Users/magnus/.CFUserTextEncoding\")"), "macOS sandbox profile must allow the user text-encoding marker read required by launchd-spawned Node.")
   ];
 }
 
