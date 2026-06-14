@@ -21,6 +21,8 @@ test("test_latest_sync_report_is_filed_once", () => {
   assert.match(markdown, /Target concept: product\/ideas\/intern-agent-governance\.md/);
   assert.match(markdown, /KB Rules Consulted/);
   assert.match(markdown, /AGENTS\.md/);
+  assert.match(markdown, /product\/ideas\.md/);
+  assert.match(markdown, /shared\/source-map\/index\.md/);
   assert.match(markdown, /intended destination is the AO1 KB/);
   assert.doesNotMatch(markdown, /ao1-intern:curatable/);
 

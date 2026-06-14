@@ -33,7 +33,12 @@ export function writeKbFixture(kb, { runId = "2026-06-14T150003-175Z", added = 1
     "Every curated page should include Owner, Last reviewed, Sources, and Related.",
     "Do not paste full transcripts, email threads, or message dumps into the KB."
   ].join("\n"));
-  fs.writeFileSync(path.join(kb, "index.md"), "# AO1 Internal Knowledge Base\n\nRelated: [Product Ideas](product/ideas.md)\n");
+  fs.writeFileSync(path.join(kb, "index.md"), "# AO1 Internal Knowledge Base\n\nRelated: [Product Ideas](product/ideas.md), [Shared](shared/index.md)\n");
+  fs.mkdirSync(path.join(kb, "product"), { recursive: true });
+  fs.writeFileSync(path.join(kb, "product", "ideas.md"), "# Product Ideas\n\nRoute agent and governance ideas here.\n");
+  fs.mkdirSync(path.join(kb, "shared", "source-map"), { recursive: true });
+  fs.writeFileSync(path.join(kb, "shared", "index.md"), "# Shared\n\nUse shared pages for cross-cutting evidence.\n");
+  fs.writeFileSync(path.join(kb, "shared", "source-map", "index.md"), "# Source Map\n\nTrack source evidence without storing raw dumps.\n");
   fs.writeFileSync(path.join(kb, ".ao1", "config.json"), JSON.stringify({
     client_id: "ao1",
     schedule: { cron: "0 8,11,14,17,20 * * *" }
