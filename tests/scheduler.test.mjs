@@ -80,6 +80,7 @@ test("test_scheduler_outputs_reviewed_launchagent_without_installing_it", () => 
   assert.match(plist, /\.ao1-intern\/logs\/observer\.out\.log/);
   assert.match(plist, /\.ao1-intern\/logs\/observer\.err\.log/);
   assert.match(fs.readFileSync(result.installPath, "utf8"), /launchctl bootstrap/);
+  assert.match(fs.readFileSync(result.installPath, "utf8"), /launchd-preflight/);
   assert.match(fs.readFileSync(result.installPath, "utf8"), /launch_agent_profile_path/);
   assert.match(fs.readFileSync(result.installPath, "utf8"), new RegExp(escapeRegExp(runtimeConfig.runtime.macos_sandbox.launch_agent_profile_path)));
   assert.match(fs.readFileSync(result.installPath, "utf8"), /Full Disk Access/);

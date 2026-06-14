@@ -159,6 +159,7 @@ function checkScheduleInstall({ file, cronPath, config = {} }) {
     expectTrue("schedule install remains manual", install.includes("Manual installation only") && install.includes("not run by the generator"), "Schedule install instructions must stay manual."),
     expectTrue("schedule install includes LaunchAgent", install.includes("launchctl bootstrap") && install.includes("com.ao1.intern.observer.plist"), "Schedule install instructions must include the reviewed LaunchAgent path."),
     expectTrue("schedule install documents macOS TCC", install.includes("Full Disk Access") && install.includes(nodeCommand), "Schedule install instructions must document macOS Full Disk Access for the Node runtime."),
+    expectTrue("schedule install runs launchd preflight", install.includes("launchd-preflight") && install.includes("--kb") && install.includes("--config"), "Schedule install instructions must run launchd-preflight before bootstrap."),
     expectTrue("schedule install preserves existing crontab", /crontab -l/.test(install) && /merge/i.test(install), "Schedule install instructions must tell the user to merge with existing crontab entries."),
     expectTrue("schedule install avoids direct crontab replacement", !install.includes(`crontab ${shellQuote(cronPath)}`) && !install.includes(`crontab ${cronPath}`), "Schedule install instructions must not replace the full crontab with the snippet.")
   ];

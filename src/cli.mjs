@@ -8,6 +8,7 @@ import { generateHostBrokerPolicy, writePolicyArtifacts } from "./policy.mjs";
 import { probeRuntime } from "./runtime-probe.mjs";
 import { runScheduledRuntimeSmoke, scheduledRuntimeEnv } from "./runtime-smoke.mjs";
 import { reviewArtifacts } from "./artifact-review.mjs";
+import { checkLaunchdPreflight } from "./launchd-preflight.mjs";
 
 const [command, ...rest] = process.argv.slice(2);
 const args = parseArgs(rest);
@@ -74,6 +75,13 @@ try {
       env: scheduledRuntimeEnv(process.env, config)
     });
     console.log(JSON.stringify(result, null, 2));
+  } else if (command === "launchd-preflight") {
+    const config = loadConfig(args.config);
+    const repoPath = args.repo ? path.resolve(args.repo) : process.cwd();
+    const kbPath = required(args.kb || config.kb_path, "--kb");
+    const result = checkLaunchdPreflight({ repoPath, kbPath, config });
+    console.log(JSON.stringify(result, null, 2));
+    if (result.status !== "passed") process.exit(1);
   } else if (command === "review-artifacts") {
     const config = loadConfig(args.config);
     const repoPath = args.repo ? path.resolve(args.repo) : process.cwd();
@@ -149,5 +157,6 @@ function usage() {
   npm run intern -- policy-artifacts [--permissions <path>] [--config <path>] [--out-dir <path>]
   npm run intern -- runtime-probe [--config <path>]
   npm run intern -- scheduled-runtime-smoke --config <path> [--kb /path/to/kb]
+  npm run intern -- launchd-preflight --kb /path/to/kb [--config <path>] [--repo /path/to/intern]
   npm run intern -- review-artifacts [--config <path>] [--kb /path/to/kb]`);
 }

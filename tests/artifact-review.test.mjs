@@ -36,6 +36,7 @@ test("test_review_artifacts_reports_manual_install_readiness", () => {
   assert.equal(result.checks.some((check) => check.name === "observer LaunchAgent environment"), true);
   assert.equal(result.checks.some((check) => check.name === "observer LaunchAgent schedule"), true);
   assert.equal(result.checks.some((check) => check.name === "schedule install documents macOS TCC"), true);
+  assert.equal(result.checks.some((check) => check.name === "schedule install runs launchd preflight"), true);
   assert.deepEqual(result.manualNextSteps, [
     "Review generated artifacts with a human before installing them.",
     "Start or install the OpenShell gateway LaunchAgent manually.",

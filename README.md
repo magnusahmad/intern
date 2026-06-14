@@ -16,11 +16,12 @@ npm run intern -- policy-artifacts --permissions config/permissions.example.json
 npm run intern -- review-artifacts --config config/ao1-intern.example.json
 npm run intern -- runtime-probe --config config/ao1-intern.example.json
 npm run intern -- scheduled-runtime-smoke --config config/ao1-intern.example.json
+npm run intern -- launchd-preflight --kb /Users/magnus/Documents/Projects/ao1-kb --config config/ao1-intern.example.json
 ```
 
 The schedule command only writes reviewable cron/LaunchAgent artifacts and install instructions. It does not install anything. With the default config, the generated scheduled command wraps a direct `node src/cli.mjs` observer in the reviewed macOS `host-broker.sb` sandbox profile copied to `runtime.macos_sandbox.launch_agent_profile_path`, so launchd can apply it without an npm wrapper.
 
-On macOS, the LaunchAgent also needs the scheduled Node runtime to have Full Disk Access when the Intern repo and KB live under `~/Documents`. The generated install guide names the exact runtime path from config, currently `/opt/homebrew/bin/node`; without that human-granted OS permission, launchd can hang before Node reads the repo entrypoint.
+On macOS, the LaunchAgent also needs the scheduled Node runtime to have Full Disk Access when the Intern repo and KB live under `~/Documents`. The generated install guide names the exact runtime path from config, currently `/opt/homebrew/bin/node`; without that human-granted OS permission, launchd can hang before Node reads the repo entrypoint. `launchd-preflight` exits nonzero until that manual OS permission is addressed.
 
 The default runtime boundary is `host-broker`: the filing path enforces the generated broker policy before spawning Hermes one-shot or Codex exec. This prevents command, flag, cwd, and secret-prompt drift inside the checked-in runtime path.
 
