@@ -35,10 +35,12 @@ try {
   } else if (command === "schedule-artifacts") {
     const kbPath = required(args.kb, "--kb");
     const configPath = args.config ? path.resolve(args.config) : undefined;
+    const config = configPath ? readJson(configPath) : {};
     const result = generateScheduleArtifacts({
       kbPath,
       repoPath: process.cwd(),
       configPath,
+      config,
       outDir: args.out_dir ? path.resolve(args.out_dir) : undefined
     });
     console.log(JSON.stringify(result, null, 2));

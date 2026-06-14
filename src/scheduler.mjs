@@ -12,7 +12,8 @@ export function generateScheduleArtifacts({
   kbPath,
   repoPath,
   configPath = path.join(repoPath, "config", "ao1-intern.example.json"),
-  env = scheduledCommandEnv(),
+  config = {},
+  env = process.env,
   outDir = path.join(repoPath, ".ao1-intern", "schedules")
 }) {
   const cron = observerCronForKb(kbPath);
@@ -20,11 +21,14 @@ export function generateScheduleArtifacts({
   const logPath = path.join(repoPath, ".ao1-intern", "logs", "observer.log");
   const cronPath = path.join(outDir, "ao1-intern.cron");
   const installPath = path.join(outDir, "INSTALL.md");
+  const scheduledEnv = scheduledCommandEnv(env, config);
+  const runtimeCommand = renderRuntimeCommand({ repoPath, config });
   const command = [
     `cd ${shellQuote(repoPath)}`,
     "&&",
-    renderEnvAssignments(env),
-    "npm run intern -- file-latest-sync",
+    renderEnvAssignments(scheduledEnv),
+    runtimeCommand,
+    "run intern -- file-latest-sync",
     `--kb ${shellQuote(kbPath)}`,
     configPath ? `--config ${shellQuote(configPath)}` : "",
     `>> ${shellQuote(logPath)} 2>&1`
@@ -36,6 +40,12 @@ export function generateScheduleArtifacts({
       "# AO1 Intern Schedule",
       "",
       "Manual installation only. Review the generated cron file before installing it.",
+      "",
+      "If the command uses `sandbox-exec`, regenerate and review policy artifacts first:",
+      "",
+      "```bash",
+      `npm run intern -- policy-artifacts --permissions config/permissions.example.json${configPath ? ` --config ${shellQuote(configPath)}` : ""}`,
+      "```",
       "",
       "```bash",
       `crontab ${shellQuote(cronPath)}`,
@@ -51,11 +61,14 @@ function shellQuote(value) {
   return `'${String(value).replaceAll("'", "'\\''")}'`;
 }
 
-function scheduledCommandEnv(env = process.env) {
-  return {
+function scheduledCommandEnv(env = process.env, config = {}) {
+  const scheduledEnv = {
     HOME: env.HOME || "",
     PATH: env.PATH || ""
   };
+  const caBundle = config.runtime?.macos_sandbox?.ca_bundle || env.SSL_CERT_FILE;
+  if (caBundle) scheduledEnv.SSL_CERT_FILE = caBundle;
+  return scheduledEnv;
 }
 
 function renderEnvAssignments(env) {
@@ -63,4 +76,15 @@ function renderEnvAssignments(env) {
     .filter(([, value]) => value)
     .map(([key, value]) => `${key}=${shellQuote(value)}`)
     .join(" ");
+}
+
+function renderRuntimeCommand({ repoPath, config }) {
+  if (!shouldWrapWithMacOSSandbox(config)) return "npm";
+  const profilePath = config.runtime?.macos_sandbox?.profile_path || path.join(repoPath, ".ao1-intern", "policies", "host-broker.sb");
+  const npmCommand = config.runtime?.macos_sandbox?.npm_command || "npm";
+  return ["sandbox-exec", "-f", shellQuote(profilePath), shellQuote(npmCommand)].join(" ");
+}
+
+function shouldWrapWithMacOSSandbox(config) {
+  return config.runtime?.execution_boundary === "host-broker" && config.runtime?.macos_sandbox?.schedule_wrapper !== false;
 }

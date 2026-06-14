@@ -7,6 +7,8 @@ import { generateScheduleArtifacts, observerCronForKb } from "../src/scheduler.m
 import { fileLatestSync } from "../src/filing.mjs";
 import { makeTempRepo, writeKbFixture } from "./helpers.mjs";
 
+const runtimeConfig = JSON.parse(fs.readFileSync("config/ao1-intern.example.json", "utf8"));
+
 test("test_schedule_parity_with_kb_cron", () => {
   const { kb } = makeTempRepo();
   writeKbFixture(kb);
@@ -31,6 +33,24 @@ test("test_scheduler_install_outputs_manual_instructions_without_mutating_cronta
   assert.match(fs.readFileSync(result.cronPath, "utf8"), /PATH=/);
   assert.match(fs.readFileSync(result.installPath, "utf8"), /Manual installation only/);
   assert.match(fs.readFileSync(result.installPath, "utf8"), /crontab/);
+});
+
+test("test_scheduler_wraps_default_runtime_with_macos_sandbox_profile", () => {
+  const { intern, kb } = makeTempRepo();
+  writeKbFixture(kb);
+  const result = generateScheduleArtifacts({
+    kbPath: kb,
+    repoPath: intern,
+    configPath: path.join(intern, "config", "ao1-intern.example.json"),
+    config: runtimeConfig
+  });
+  const cron = fs.readFileSync(result.cronPath, "utf8");
+
+  assert.match(cron, /SSL_CERT_FILE=/);
+  assert.match(cron, /sandbox-exec -f/);
+  assert.match(cron, /\.ao1-intern\/policies\/host-broker\.sb/);
+  assert.match(cron, /\/opt\/homebrew\/bin\/npm'? run intern -- file-latest-sync/);
+  assert.match(fs.readFileSync(result.installPath, "utf8"), /policy-artifacts/);
 });
 
 test("test_manual_trigger_processes_latest_sync_without_cron", () => {

@@ -15,7 +15,7 @@ npm run intern -- runtime-probe --config config/ao1-intern.example.json
 npm run intern -- scheduled-runtime-smoke --config config/ao1-intern.example.json
 ```
 
-The schedule command only writes reviewable cron/LaunchAgent artifacts and install instructions. It does not install anything.
+The schedule command only writes reviewable cron/LaunchAgent artifacts and install instructions. It does not install anything. With the default config, the generated cron command wraps the observer in the reviewed macOS `host-broker.sb` sandbox profile.
 
 The default runtime boundary is `host-broker`: the filing path enforces the generated broker policy before spawning Hermes one-shot or Codex exec. This prevents command, flag, cwd, and secret-prompt drift inside the checked-in runtime path.
 
