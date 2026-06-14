@@ -27,7 +27,9 @@ test("test_scheduler_install_outputs_manual_instructions_without_mutating_cronta
   const after = safeCrontab();
 
   assert.equal(after, before);
-  assert.match(fs.readFileSync(result.cronPath, "utf8"), /file-latest-sync --kb/);
+  assert.match(fs.readFileSync(result.cronPath, "utf8"), /file-latest-sync/);
+  assert.match(fs.readFileSync(result.cronPath, "utf8"), /--repo/);
+  assert.match(fs.readFileSync(result.cronPath, "utf8"), /--kb/);
   assert.match(fs.readFileSync(result.cronPath, "utf8"), /--config/);
   assert.match(fs.readFileSync(result.cronPath, "utf8"), /HOME=/);
   assert.match(fs.readFileSync(result.cronPath, "utf8"), /PATH=/);
@@ -36,6 +38,53 @@ test("test_scheduler_install_outputs_manual_instructions_without_mutating_cronta
   assert.match(install, /merge/i);
   assert.match(install, /crontab -l/);
   assert.doesNotMatch(install, new RegExp(`crontab ${escapeRegExp(result.cronPath)}`));
+});
+
+test("test_scheduler_outputs_reviewed_launchagent_without_installing_it", () => {
+  const { intern, kb } = makeTempRepo();
+  writeKbFixture(kb);
+  const result = generateScheduleArtifacts({
+    kbPath: kb,
+    repoPath: intern,
+    configPath: path.join(intern, "config", "ao1-intern.example.json"),
+    config: runtimeConfig
+  });
+  const plist = fs.readFileSync(result.launchAgentPath, "utf8");
+
+  assert.match(plist, /com\.ao1\.intern\.observer/);
+  assert.match(plist, /StartCalendarInterval/);
+  assert.match(plist, new RegExp(`<string>${escapeRegExp(runtimeConfig.runtime.macos_sandbox.launch_agent_working_directory)}</string>`));
+  for (const hour of [8, 11, 14, 17, 20]) {
+    assert.match(plist, new RegExp(`<integer>${hour}</integer>`));
+  }
+  assert.match(plist, /sandbox-exec/);
+  assert.match(plist, new RegExp(escapeRegExp(runtimeConfig.runtime.macos_sandbox.launch_agent_profile_path)));
+  assert.match(plist, /EnvironmentVariables/);
+  assert.match(plist, /<key>HOME<\/key>/);
+  assert.match(plist, /<key>PATH<\/key>/);
+  assert.match(plist, /<key>SSL_CERT_FILE<\/key>/);
+  assert.match(plist, /<key>TMPDIR<\/key>/);
+  assert.match(plist, /<key>USER<\/key>/);
+  assert.match(plist, /<key>LOGNAME<\/key>/);
+  assert.match(plist, /<key>SHELL<\/key>/);
+  assert.match(plist, /<string>\/usr\/bin\/sandbox-exec<\/string>/);
+  assert.doesNotMatch(plist, /<array>\s*<string>\/bin\/zsh<\/string>/);
+  assert.doesNotMatch(plist, /<string>-lc<\/string>/);
+  assert.match(plist, /file-latest-sync/);
+  assert.match(plist, /src\/cli\.mjs/);
+  assert.match(plist, /--repo/);
+  assert.match(plist, new RegExp(escapeRegExp(intern)));
+  assert.doesNotMatch(plist, /cd &apos;/);
+  assert.doesNotMatch(plist, /run intern/);
+  assert.match(plist, /ao1-intern\.example\.json/);
+  assert.match(plist, /\.ao1-intern\/logs\/observer\.out\.log/);
+  assert.match(plist, /\.ao1-intern\/logs\/observer\.err\.log/);
+  assert.match(fs.readFileSync(result.installPath, "utf8"), /launchctl bootstrap/);
+  assert.match(fs.readFileSync(result.installPath, "utf8"), /launch_agent_profile_path/);
+  assert.match(fs.readFileSync(result.installPath, "utf8"), new RegExp(escapeRegExp(runtimeConfig.runtime.macos_sandbox.launch_agent_profile_path)));
+  assert.match(fs.readFileSync(result.installPath, "utf8"), /Full Disk Access/);
+  assert.match(fs.readFileSync(result.installPath, "utf8"), new RegExp(escapeRegExp(runtimeConfig.runtime.macos_sandbox.node_command)));
+  assert.match(fs.readFileSync(result.installPath, "utf8"), /not run by the generator/);
 });
 
 test("test_scheduler_wraps_default_runtime_with_macos_sandbox_profile", () => {
@@ -50,9 +99,15 @@ test("test_scheduler_wraps_default_runtime_with_macos_sandbox_profile", () => {
   const cron = fs.readFileSync(result.cronPath, "utf8");
 
   assert.match(cron, /SSL_CERT_FILE=/);
-  assert.match(cron, /sandbox-exec -f/);
-  assert.match(cron, /\.ao1-intern\/policies\/host-broker\.sb/);
-  assert.match(cron, /\/opt\/homebrew\/bin\/npm'? run intern -- file-latest-sync/);
+  assert.match(cron, /sandbox-exec/);
+  assert.match(cron, /-f/);
+  assert.match(cron, new RegExp(escapeRegExp(runtimeConfig.runtime.macos_sandbox.launch_agent_profile_path)));
+  assert.match(cron, /\/opt\/homebrew\/bin\/node/);
+  assert.match(cron, /src\/cli\.mjs/);
+  assert.match(cron, /file-latest-sync/);
+  assert.match(cron, /--repo/);
+  assert.match(cron, new RegExp(escapeRegExp(intern)));
+  assert.doesNotMatch(cron, /run intern -- file-latest-sync/);
   assert.match(fs.readFileSync(result.installPath, "utf8"), /policy-artifacts/);
 });
 
@@ -64,6 +119,28 @@ test("test_manual_trigger_processes_latest_sync_without_cron", () => {
     encoding: "utf8"
   });
   assert.match(result, /"status": "filed"/);
+});
+
+test("test_manual_trigger_accepts_explicit_repo_path_from_outside_repo", () => {
+  const { intern, kb } = makeTempRepo();
+  writeKbFixture(kb);
+  const result = execFileSync(process.execPath, [
+    path.resolve("src/cli.mjs"),
+    "file-latest-sync",
+    "--kb",
+    kb,
+    "--repo",
+    intern,
+    "--commit",
+    "false"
+  ], {
+    cwd: path.dirname(intern),
+    encoding: "utf8"
+  });
+  const parsed = JSON.parse(result);
+
+  assert.equal(parsed.status, "filed");
+  assert.equal(parsed.outputs.every((output) => output.startsWith(intern)), true);
 });
 
 test("test_manual_trigger_honors_commit_policy_manual", () => {

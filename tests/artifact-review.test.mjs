@@ -26,10 +26,16 @@ test("test_review_artifacts_reports_manual_install_readiness", () => {
     config
   });
 
-  const result = reviewArtifacts({ repoPath: intern, kbPath: kb });
+  const result = reviewArtifacts({ repoPath: intern, kbPath: kb, config });
 
   assert.equal(result.status, "passed");
   assert.equal(result.checks.every((check) => check.status === "passed"), true);
+  assert.equal(result.checks.some((check) => check.name === "schedule artifact: com.ao1.intern.observer.plist"), true);
+  assert.equal(result.checks.some((check) => check.name === "observer LaunchAgent sandbox profile"), true);
+  assert.equal(result.checks.some((check) => check.name === "observer LaunchAgent direct sandbox command"), true);
+  assert.equal(result.checks.some((check) => check.name === "observer LaunchAgent environment"), true);
+  assert.equal(result.checks.some((check) => check.name === "observer LaunchAgent schedule"), true);
+  assert.equal(result.checks.some((check) => check.name === "schedule install documents macOS TCC"), true);
   assert.deepEqual(result.manualNextSteps, [
     "Review generated artifacts with a human before installing them.",
     "Start or install the OpenShell gateway LaunchAgent manually.",
@@ -58,7 +64,7 @@ test("test_review_artifacts_fails_closed_when_artifacts_drift", () => {
   brokerPolicy.tools.codex.sandbox = "workspace-write";
   fs.writeFileSync(brokerPolicyPath, `${JSON.stringify(brokerPolicy, null, 2)}\n`);
 
-  const result = reviewArtifacts({ repoPath: intern, kbPath: kb });
+  const result = reviewArtifacts({ repoPath: intern, kbPath: kb, config });
 
   assert.equal(result.status, "failed");
   assert.equal(result.checks.some((check) => check.status === "failed" && /KB write/.test(check.detail)), true);

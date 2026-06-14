@@ -339,6 +339,7 @@ function renderSandboxReadFilters(paths) {
 function parentDirectoryLiterals(paths) {
   const parents = new Set();
   for (const entryPath of paths) {
+    if (path.isAbsolute(entryPath)) parents.add(path.parse(entryPath).root);
     let current = path.dirname(entryPath);
     while (current && current !== path.dirname(current)) {
       parents.add(current);

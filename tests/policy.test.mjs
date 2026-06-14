@@ -53,6 +53,7 @@ test("test_policy_artifacts_include_macos_sandbox_profile_for_host_broker", () =
   assert.match(profile, /\(version 1\)/);
   assert.match(profile, /\(deny default\)/);
   assert.match(profile, /\(allow file-read\*/);
+  assert.match(profile, /\(literal "\/"\)/);
   assert.match(profile, /\(literal "\/opt"\)/);
   assert.match(profile, /\/Users\/magnus\/Documents\/Projects\/ao1-kb/);
   assert.match(profile, /\(allow file-write\*/);

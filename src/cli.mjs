@@ -15,20 +15,21 @@ const args = parseArgs(rest);
 try {
   if (command === "file-latest-sync") {
     const kbPath = required(args.kb, "--kb");
+    const repoPath = args.repo ? path.resolve(args.repo) : process.cwd();
     const config = loadConfig(args.config);
-    const permissionsManifest = loadPermissionsManifest(config, args);
-    const hostBrokerPolicy = buildHostBrokerPolicy(config, args);
+    const permissionsManifest = loadPermissionsManifest(config, args, { repoPath });
+    const hostBrokerPolicy = buildHostBrokerPolicy(config, args, { repoPath });
     const classifier = selectRuntimeClassifier({
       mode: args.classifier || config.classifier || "heuristic",
       repoPath: args.codex_repo ? path.resolve(args.codex_repo) : kbPath,
-      internRepoPath: process.cwd(),
+      internRepoPath: repoPath,
       codexConfig: config.codex_exec || {},
       hermesConfig: config.hermes || {},
       hostBrokerPolicy
     });
     const result = fileLatestSync({
       kbPath,
-      repoPath: process.cwd(),
+      repoPath,
       runId: args.run_id || null,
       commit: args.commit !== "false",
       commitPolicy: args.commit_policy || config.filing?.commit_policy || "per-run",
@@ -75,10 +76,12 @@ try {
     console.log(JSON.stringify(result, null, 2));
   } else if (command === "review-artifacts") {
     const config = loadConfig(args.config);
+    const repoPath = args.repo ? path.resolve(args.repo) : process.cwd();
     const kbPath = args.kb || config.kb_path ? path.resolve(args.kb || config.kb_path) : null;
     const result = reviewArtifacts({
-      repoPath: process.cwd(),
+      repoPath,
       kbPath,
+      config,
       policyDir: args.policy_dir ? path.resolve(args.policy_dir) : undefined,
       scheduleDir: args.schedule_dir ? path.resolve(args.schedule_dir) : undefined
     });
@@ -120,19 +123,23 @@ function loadConfig(configPath) {
   return readJson(path.resolve(configPath));
 }
 
-function buildHostBrokerPolicy(config, args = {}) {
+function buildHostBrokerPolicy(config, args = {}, { repoPath = process.cwd() } = {}) {
   if (config.runtime?.execution_boundary !== "host-broker") return null;
-  const permissionsPath = path.resolve(args.permissions || config.permissions_path || "config/permissions.example.json");
+  const permissionsPath = resolveFromBase(args.permissions || config.permissions_path || "config/permissions.example.json", repoPath);
   return generateHostBrokerPolicy({
     manifest: readJson(permissionsPath),
     config
   });
 }
 
-function loadPermissionsManifest(config, args) {
+function loadPermissionsManifest(config, args, { repoPath = process.cwd() } = {}) {
   const permissionsPath = args.permissions || config.permissions_path;
   if (!permissionsPath) return null;
-  return readJson(path.resolve(permissionsPath));
+  return readJson(resolveFromBase(permissionsPath, repoPath));
+}
+
+function resolveFromBase(candidatePath, basePath) {
+  return path.isAbsolute(candidatePath) ? candidatePath : path.join(basePath, candidatePath);
 }
 
 function usage() {

@@ -46,7 +46,10 @@
       "stderr_path": "/Users/magnus/Documents/Projects/ao1-intern/.ao1-intern/logs/openshell-gateway.err.log"
     },
     "macos_sandbox": {
+      "node_command": "/opt/homebrew/bin/node",
       "npm_command": "/opt/homebrew/bin/npm",
+      "launch_agent_profile_path": "/Users/magnus/.local/state/ao1-intern/host-broker.sb",
+      "launch_agent_working_directory": "/private/tmp",
       "ca_bundle": "/opt/homebrew/etc/openssl@3/cert.pem",
       "tool_read_roots": [
         "/opt/homebrew/bin",

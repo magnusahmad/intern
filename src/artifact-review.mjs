@@ -14,12 +14,14 @@ const POLICY_FILES = [
 
 const SCHEDULE_FILES = [
   "ao1-intern.cron",
+  "com.ao1.intern.observer.plist",
   "INSTALL.md"
 ];
 
 export function reviewArtifacts({
   repoPath = process.cwd(),
   kbPath = null,
+  config = {},
   policyDir = path.join(repoPath, ".ao1-intern", "policies"),
   scheduleDir = path.join(repoPath, ".ao1-intern", "schedules")
 } = {}) {
@@ -36,11 +38,19 @@ export function reviewArtifacts({
   checks.push(...checkSchedule({
     file: path.join(scheduleDir, "ao1-intern.cron"),
     kbPath,
-    repoPath
+    repoPath,
+    config
+  }));
+  checks.push(...checkObserverLaunchAgent({
+    file: path.join(scheduleDir, "com.ao1.intern.observer.plist"),
+    kbPath,
+    repoPath,
+    config
   }));
   checks.push(...checkScheduleInstall({
     file: path.join(scheduleDir, "INSTALL.md"),
-    cronPath: path.join(scheduleDir, "ao1-intern.cron")
+    cronPath: path.join(scheduleDir, "ao1-intern.cron"),
+    config
   }));
   checks.push(...checkLaunchAgent({
     file: path.join(policyDir, "com.ao1.intern.openshell-gateway.plist")
@@ -120,17 +130,19 @@ function checkHostBrokerPolicy({ file, repoPath }) {
   ];
 }
 
-function checkSchedule({ file, kbPath, repoPath }) {
+function checkSchedule({ file, kbPath, repoPath, config }) {
   if (!fs.existsSync(file)) return [failed("schedule artifact", `${file} is missing`)];
   const cron = fs.readFileSync(file, "utf8");
   const expectedCron = kbPath ? observerCronForKb(kbPath) : null;
+  const expectedProfilePath = scheduledSandboxProfilePath({ repoPath, config });
   const checks = [
     expectTrue("schedule command uses repo", cron.includes(`cd '${repoPath}'`) || cron.includes(`cd ${shellQuote(repoPath)}`), "Schedule must cd into the Intern repo."),
-    expectTrue("schedule command uses file-latest-sync", cron.includes("run intern -- file-latest-sync"), "Schedule must run the filing command."),
+    expectTrue("schedule command uses file-latest-sync", cron.includes("file-latest-sync"), "Schedule must run the filing command."),
+    expectTrue("schedule command passes explicit repo", cron.includes("--repo") && cron.includes(repoPath), "Schedule must pass the Intern repo explicitly for launchd sandbox runs."),
     expectTrue("schedule command uses config", cron.includes("--config"), "Schedule must carry the reviewed config path."),
     expectTrue("schedule command carries HOME", cron.includes("HOME="), "Schedule must carry HOME for machine auth."),
     expectTrue("schedule command carries PATH", cron.includes("PATH="), "Schedule must carry PATH for local tools."),
-    expectTrue("schedule command uses sandbox wrapper", cron.includes("sandbox-exec -f") && cron.includes("host-broker.sb"), "Schedule must use the reviewed host-broker sandbox profile."),
+    expectTrue("schedule command uses sandbox wrapper", cron.includes("sandbox-exec") && cron.includes("-f") && cron.includes(expectedProfilePath), "Schedule must use the reviewed host-broker sandbox profile."),
     expectTrue("schedule command logs output", cron.includes(".ao1-intern/logs/observer.log"), "Schedule must log observer output for dogfood review.")
   ];
   if (expectedCron) {
@@ -139,14 +151,44 @@ function checkSchedule({ file, kbPath, repoPath }) {
   return checks;
 }
 
-function checkScheduleInstall({ file, cronPath }) {
+function checkScheduleInstall({ file, cronPath, config = {} }) {
   if (!fs.existsSync(file)) return [failed("schedule install instructions", `${file} is missing`)];
   const install = fs.readFileSync(file, "utf8");
+  const nodeCommand = config.runtime?.macos_sandbox?.node_command || "node";
   return [
     expectTrue("schedule install remains manual", install.includes("Manual installation only") && install.includes("not run by the generator"), "Schedule install instructions must stay manual."),
+    expectTrue("schedule install includes LaunchAgent", install.includes("launchctl bootstrap") && install.includes("com.ao1.intern.observer.plist"), "Schedule install instructions must include the reviewed LaunchAgent path."),
+    expectTrue("schedule install documents macOS TCC", install.includes("Full Disk Access") && install.includes(nodeCommand), "Schedule install instructions must document macOS Full Disk Access for the Node runtime."),
     expectTrue("schedule install preserves existing crontab", /crontab -l/.test(install) && /merge/i.test(install), "Schedule install instructions must tell the user to merge with existing crontab entries."),
     expectTrue("schedule install avoids direct crontab replacement", !install.includes(`crontab ${shellQuote(cronPath)}`) && !install.includes(`crontab ${cronPath}`), "Schedule install instructions must not replace the full crontab with the snippet.")
   ];
+}
+
+function checkObserverLaunchAgent({ file, kbPath, repoPath, config }) {
+  if (!fs.existsSync(file)) return [failed("observer LaunchAgent", `${file} is missing`)];
+  const plist = fs.readFileSync(file, "utf8");
+  const expectedCron = kbPath ? observerCronForKb(kbPath) : null;
+  const expectedProfilePath = scheduledSandboxProfilePath({ repoPath, config });
+  const expectedWorkingDirectory = scheduledLaunchAgentWorkingDirectory({ config });
+  const checks = [
+    expectTrue("observer LaunchAgent label", plist.includes("com.ao1.intern.observer"), "Observer LaunchAgent label must be AO1 Intern specific."),
+    expectTrue("observer LaunchAgent command", plist.includes("file-latest-sync") && plist.includes(repoPath), "Observer LaunchAgent must run the Intern filing command from the Intern repo."),
+    expectTrue("observer LaunchAgent explicit repo", plist.includes("--repo") && plist.includes(repoPath), "Observer LaunchAgent must pass the Intern repo explicitly for launchd sandbox runs."),
+    expectTrue("observer LaunchAgent working directory", plist.includes(`<string>${expectedWorkingDirectory}</string>`), `Observer LaunchAgent must run from ${expectedWorkingDirectory}.`),
+    expectTrue("observer LaunchAgent sandbox wrapper", plist.includes("sandbox-exec"), "Observer LaunchAgent must use sandbox-exec."),
+    expectTrue("observer LaunchAgent sandbox profile", plist.includes(expectedProfilePath), `Observer LaunchAgent must use ${expectedProfilePath}.`),
+    expectTrue("observer LaunchAgent direct sandbox command", plist.includes("<string>/usr/bin/sandbox-exec</string>") && !/<array>\s*<string>\/bin\/zsh<\/string>/.test(plist) && !plist.includes("<string>-lc</string>"), "Observer LaunchAgent must invoke sandbox-exec directly without shell wrapping."),
+    expectTrue("observer LaunchAgent environment", ["HOME", "PATH", "TMPDIR", "USER", "LOGNAME", "SHELL"].every((key) => plist.includes(`<key>${key}</key>`)), "Observer LaunchAgent must carry machine auth and login environment explicitly."),
+    expectTrue("observer LaunchAgent config", plist.includes("ao1-intern.example.json"), "Observer LaunchAgent must carry the reviewed config path."),
+    expectTrue("observer LaunchAgent logs", plist.includes(".ao1-intern/logs/observer.out.log") && plist.includes(".ao1-intern/logs/observer.err.log"), "Observer LaunchAgent must log under Intern state.")
+  ];
+  if (expectedCron) {
+    const intervals = intervalsFromCron(expectedCron);
+    checks.push(expectTrue("observer LaunchAgent schedule", intervals.every(({ hour, minute }) => (
+      plist.includes(`<integer>${hour}</integer>`) && plist.includes(`<integer>${minute}</integer>`)
+    )), "Observer LaunchAgent must include each KB cron hour and minute."));
+  }
+  return checks;
 }
 
 function checkLaunchAgent({ file }) {
@@ -206,4 +248,22 @@ function isInside(parent, candidate) {
 
 function shellQuote(value) {
   return `'${String(value).replaceAll("'", "'\\''")}'`;
+}
+
+function scheduledSandboxProfilePath({ repoPath, config }) {
+  return config.runtime?.macos_sandbox?.launch_agent_profile_path
+    || config.runtime?.macos_sandbox?.profile_path
+    || path.join(repoPath, ".ao1-intern", "policies", "host-broker.sb");
+}
+
+function scheduledLaunchAgentWorkingDirectory({ config }) {
+  return config.runtime?.macos_sandbox?.launch_agent_working_directory || "/private/tmp";
+}
+
+function intervalsFromCron(cron) {
+  const [minute, hours] = cron.split(/\s+/);
+  return hours.split(",").map((hour) => ({
+    hour: Number(hour),
+    minute: Number(minute)
+  }));
 }
