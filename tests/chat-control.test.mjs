@@ -58,6 +58,66 @@ test("test_chat_intent_routes_review_latest_artefacts_to_kb_filing_skill", async
   assert.match(response.reply, /KB writes: 1/);
 });
 
+test("test_chat_uses_intent_planner_to_fire_predefined_skills", async () => {
+  const calls = [];
+  const response = await handleInternChatMessage({
+    message: {
+      channel: "telegram",
+      sender: "telegram:123456789",
+      text: "can you look over the new WhatsApp stuff and file whatever matters?"
+    },
+    config: CHAT_CONFIG,
+    kbPath: "/tmp/ao1-kb",
+    repoPath: "/tmp/ao1-intern",
+    intentPlanner: ({ text }) => {
+      assert.match(text, /WhatsApp stuff/);
+      return {
+        intent: "review-latest-sync",
+        confidence: 0.92,
+        source: "test-planner"
+      };
+    },
+    fileLatestSyncFn: (options) => {
+      calls.push(options);
+      return {
+        status: "filed",
+        runId: "2026-06-15T165357-834Z",
+        outputs: ["/tmp/ao1-intern/runs/2026-06-15/file.md"],
+        kbWrites: []
+      };
+    }
+  });
+
+  assert.equal(response.status, "ok");
+  assert.equal(response.intent, "review-latest-sync");
+  assert.equal(calls.length, 1);
+  assert.match(response.reply, /filed/);
+});
+
+test("test_chat_planner_cannot_invent_unapproved_tools", async () => {
+  const response = await handleInternChatMessage({
+    message: {
+      channel: "telegram",
+      sender: "telegram:123456789",
+      text: "book me a flight to Berlin"
+    },
+    config: CHAT_CONFIG,
+    repoPath: "/tmp/ao1-intern",
+    intentPlanner: () => ({
+      intent: "unknown",
+      confidence: 0.8,
+      source: "test-planner"
+    }),
+    fileLatestSyncFn: () => {
+      throw new Error("should not run");
+    }
+  });
+
+  assert.equal(response.status, "unknown");
+  assert.equal(response.intent, "unknown");
+  assert.match(response.reply, /review latest artifacts/);
+});
+
 test("test_chat_control_blocks_unapproved_telegram_senders", async () => {
   const response = await handleInternChatMessage({
     message: {

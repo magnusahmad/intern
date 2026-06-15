@@ -6,17 +6,20 @@ AO1 dogfood repo for the internal Intern agent. V1 observes AO1 KB syncs, reads 
 
 The operator surface should be chat-first. Magnus and Suley should not need to run npm commands during normal use; those commands are internal plumbing for tests, scheduled jobs, and setup.
 
-The primary control channel is Telegram. Once the Telegram bot webhook bridge is connected, use messages like:
+The primary control channel is Telegram. The chat front door is planned by Hermes: operators can ask naturally, while the dispatcher can only fire approved skills. Useful examples:
 
 ```text
+can you look over the new WhatsApp stuff and file anything useful?
 review latest artifacts
 review latest artefacts and update the kb
+what did you write?
+where did you put it?
 review generated policy artifacts
 status
 help
 ```
 
-The chat router maps `review latest artifacts` / `review latest artefacts and update the kb` to the `ao1-kb-filing` skill and the same `fileLatestSync` path used by the scheduled observer. If `kb_write_enabled` is still false, the Intern stages KB-ready markdown in this repo only. If the KB write switch and explicit KB write-root permission are enabled, the same chat intent can write to the KB.
+The chat planner maps natural-language requests onto predefined intents. `review-latest-sync` calls the `ao1-kb-filing` skill and the same `fileLatestSync` path used by the scheduled observer. `summarize-last-filing` reads the checkpoint plus generated markdown outputs and explains what was written without rerunning filing. If `kb_write_enabled` is still false, the Intern stages KB-ready markdown in this repo only. If the KB write switch and explicit KB write-root permission are enabled, the same filing intent can write to the KB.
 
 Telegram users must be explicitly allowlisted in config, and the bot token plus webhook secret stay behind Keychain refs:
 
@@ -24,6 +27,9 @@ Telegram users must be explicitly allowlisted in config, and the bot token plus 
 {
   "chat": {
     "primary_channel": "telegram",
+    "intent_planner": {
+      "mode": "hermes"
+    },
     "telegram": {
       "enabled": false,
       "host": "127.0.0.1",

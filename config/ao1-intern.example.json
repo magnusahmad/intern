@@ -10,6 +10,9 @@
   },
   "chat": {
     "primary_channel": "telegram",
+    "intent_planner": {
+      "mode": "hermes"
+    },
     "telegram": {
       "enabled": false,
       "host": "127.0.0.1",

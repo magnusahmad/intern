@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { reviewArtifacts } from "./artifact-review.mjs";
+import { heuristicPlanChatIntent, selectChatIntentPlanner } from "./chat-planner.mjs";
 import { fileLatestSync } from "./filing.mjs";
 import { ensureInside, readJson } from "./fs-util.mjs";
 import { generateHostBrokerPolicy } from "./policy.mjs";
@@ -10,27 +11,7 @@ import { selectRuntimeClassifier } from "./runtime-classifier.mjs";
 const FILING_SKILL = "ao1-kb-filing";
 
 export function parseInternChatIntent(text = "") {
-  const normalized = String(text).toLowerCase().replace(/\s+/g, " ").trim();
-  const mentionsArtifact = /\bartifacts?\b|\bartefacts?\b/.test(normalized);
-  const mentionsGenerated = /\bgenerated\b|\bpolicy\b|\bschedule\b|\bsandbox\b|\blaunchagent\b/.test(normalized);
-
-  if (/\bhelp\b|\bcommands?\b/.test(normalized)) return "help";
-  if (/\bstatus\b|\bhealth\b|\bhealthy\b|\bready\b/.test(normalized)) return "runtime-status";
-  if (mentionsArtifact && mentionsGenerated) return "review-generated-artifacts";
-  if (/\btry\b.*\b(more recent|newer|latest)\b/.test(normalized)) return "review-latest-sync";
-  if (/\b(more recent|newer)\b.*\bones?\b/.test(normalized)) return "review-latest-sync";
-  if (/\bwhat\b.*\b(write|wrote|file|filed|put)\b/.test(normalized)) return "summarize-last-filing";
-  if (/\bwhere\b.*\b(put|write|wrote|file|filed)\b/.test(normalized)) return "summarize-last-filing";
-  if (/\b(show|summari[sz]e|explain)\b.*\b(last|latest|recent)\b.*\b(run|filing|file|files|outputs?)\b/.test(normalized)) return "summarize-last-filing";
-  if (
-    /\bfile latest sync\b/.test(normalized) ||
-    /\breview latest sync\b/.test(normalized) ||
-    /\bupdate (the )?kb\b/.test(normalized) ||
-    (mentionsArtifact && /\blatest\b|\breview\b/.test(normalized))
-  ) {
-    return "review-latest-sync";
-  }
-  return "unknown";
+  return heuristicPlanChatIntent({ text }).intent;
 }
 
 export async function handleInternChatMessage({
@@ -40,6 +21,7 @@ export async function handleInternChatMessage({
   repoPath = process.cwd(),
   permissionsManifest,
   classifier,
+  intentPlanner,
   fileLatestSyncFn = fileLatestSync,
   reviewArtifactsFn = reviewArtifacts,
   runtimeProbeFn = probeRuntime
@@ -53,7 +35,8 @@ export async function handleInternChatMessage({
     };
   }
 
-  const intent = parseInternChatIntent(message?.text || "");
+  const plan = await planChatIntent({ message, config, kbPath, repoPath, intentPlanner });
+  const intent = plan.intent;
   if (intent === "review-latest-sync") {
     const result = await fileLatestSyncFn(buildFilingOptions({
       kbPath,
@@ -125,6 +108,26 @@ export async function handleInternChatMessage({
     intent: "unknown",
     reply: "I do not know how to do that yet. Try: review latest artifacts, what did you write?, review generated policy artifacts, or status."
   };
+}
+
+async function planChatIntent({ message, config, kbPath, repoPath, intentPlanner }) {
+  const hostBrokerPolicy = buildHostBrokerPolicy(config, repoPath);
+  const planner = intentPlanner || selectChatIntentPlanner({
+    config,
+    repoPath,
+    hostBrokerPolicy
+  });
+  try {
+    return await planner({
+      message,
+      text: message?.text || "",
+      config,
+      kbPath,
+      repoPath
+    });
+  } catch {
+    return heuristicPlanChatIntent({ text: message?.text || "" });
+  }
 }
 
 export function summarizeLastFiling({ repoPath = process.cwd(), checkpointPath = path.join(repoPath, ".ao1-intern", "checkpoint.json") } = {}) {
