@@ -1,7 +1,8 @@
+import fs from "node:fs";
 import path from "node:path";
 import { reviewArtifacts } from "./artifact-review.mjs";
 import { fileLatestSync } from "./filing.mjs";
-import { readJson } from "./fs-util.mjs";
+import { ensureInside, readJson } from "./fs-util.mjs";
 import { generateHostBrokerPolicy } from "./policy.mjs";
 import { probeRuntime } from "./runtime-probe.mjs";
 import { selectRuntimeClassifier } from "./runtime-classifier.mjs";
@@ -18,6 +19,9 @@ export function parseInternChatIntent(text = "") {
   if (mentionsArtifact && mentionsGenerated) return "review-generated-artifacts";
   if (/\btry\b.*\b(more recent|newer|latest)\b/.test(normalized)) return "review-latest-sync";
   if (/\b(more recent|newer)\b.*\bones?\b/.test(normalized)) return "review-latest-sync";
+  if (/\bwhat\b.*\b(write|wrote|file|filed|put)\b/.test(normalized)) return "summarize-last-filing";
+  if (/\bwhere\b.*\b(put|write|wrote|file|filed)\b/.test(normalized)) return "summarize-last-filing";
+  if (/\b(show|summari[sz]e|explain)\b.*\b(last|latest|recent)\b.*\b(run|filing|file|files|outputs?)\b/.test(normalized)) return "summarize-last-filing";
   if (
     /\bfile latest sync\b/.test(normalized) ||
     /\breview latest sync\b/.test(normalized) ||
@@ -78,6 +82,15 @@ export async function handleInternChatMessage({
     };
   }
 
+  if (intent === "summarize-last-filing") {
+    return {
+      status: "ok",
+      intent,
+      skill: "filing-summary",
+      reply: summarizeLastFiling({ repoPath })
+    };
+  }
+
   if (intent === "runtime-status") {
     const result = await runtimeProbeFn({ commands: config.runtime?.commands || {} });
     return {
@@ -99,6 +112,8 @@ export async function handleInternChatMessage({
       reply: [
         "AO1 Intern understands:",
         "review latest artifacts",
+        "what did you write?",
+        "where did you put it?",
         "review generated policy artifacts",
         "status"
       ].join("\n")
@@ -108,8 +123,68 @@ export async function handleInternChatMessage({
   return {
     status: "unknown",
     intent: "unknown",
-    reply: "I do not know how to do that yet. Try: review latest artifacts, review generated policy artifacts, or status."
+    reply: "I do not know how to do that yet. Try: review latest artifacts, what did you write?, review generated policy artifacts, or status."
   };
+}
+
+export function summarizeLastFiling({ repoPath = process.cwd(), checkpointPath = path.join(repoPath, ".ao1-intern", "checkpoint.json") } = {}) {
+  if (!fs.existsSync(checkpointPath)) {
+    return "I do not have a filing checkpoint yet.";
+  }
+
+  const checkpoint = readJson(checkpointPath);
+  const entries = Object.entries(checkpoint.filed_runs || {})
+    .map(([runId, record]) => ({ runId, ...record }))
+    .sort((a, b) => String(b.at || "").localeCompare(String(a.at || "")));
+  const latest = entries[0];
+  if (!latest) return "I do not have any filing runs recorded yet.";
+
+  if (latest.status !== "filed") {
+    return [
+      `Last filing run: ${latest.status || "unknown"} for ${latest.runId}.`,
+      "It did not write markdown."
+    ].join("\n");
+  }
+
+  const outputs = latest.outputs || [];
+  const kbWrites = latest.kb_writes || [];
+  const lines = [
+    `Last filing run: filed for ${latest.runId}.`,
+    `Intern files: ${outputs.length || 0}. KB writes: ${kbWrites.length ? kbWrites.join(", ") : "none"}.`
+  ];
+
+  for (const relPath of outputs.slice(0, 3)) {
+    const file = safeRepoPath(repoPath, relPath);
+    if (!file || !fs.existsSync(file)) {
+      lines.push(`- ${relPath}: file is no longer present.`);
+      continue;
+    }
+    const summary = summarizeFiledMarkdown(fs.readFileSync(file, "utf8"));
+    lines.push(`- ${relPath}`);
+    if (summary.targetConcept) lines.push(`  Target: ${summary.targetConcept}`);
+    for (const bullet of summary.bullets.slice(0, 2)) {
+      lines.push(`  ${bullet}`);
+    }
+  }
+
+  if (outputs.length > 3) lines.push(`Plus ${outputs.length - 3} more file(s).`);
+  return lines.join("\n");
+}
+
+function safeRepoPath(repoPath, relPath) {
+  const candidate = path.resolve(repoPath, relPath);
+  return ensureInside(repoPath, candidate) ? candidate : null;
+}
+
+function summarizeFiledMarkdown(markdown) {
+  const targetConcept = markdown.match(/^Target concept:\s*(.+)$/m)?.[1] || "";
+  const summaryMatch = markdown.match(/(?:^|\n)## Summary\s*\n([\s\S]*?)(?=\n## |\n?$)/);
+  const bullets = [];
+  for (const line of (summaryMatch?.[1] || "").split(/\r?\n/)) {
+    const bullet = line.match(/^- (.+)$/);
+    if (bullet) bullets.push(bullet[1]);
+  }
+  return { targetConcept, bullets };
 }
 
 function authorizeChatMessage({ message, config }) {

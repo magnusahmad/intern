@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { Readable, Writable } from "node:stream";
 import test from "node:test";
 import {
@@ -105,10 +108,67 @@ test("test_chat_intent_parser_keeps_operator_commands_small_and_predictable", ()
   assert.equal(parseInternChatIntent("review latest artefacts"), "review-latest-sync");
   assert.equal(parseInternChatIntent("file latest sync"), "review-latest-sync");
   assert.equal(parseInternChatIntent("try the more recent ones"), "review-latest-sync");
+  assert.equal(parseInternChatIntent("what did you write?"), "summarize-last-filing");
+  assert.equal(parseInternChatIntent("where did you put it?"), "summarize-last-filing");
   assert.equal(parseInternChatIntent("review generated schedule artifacts"), "review-generated-artifacts");
   assert.equal(parseInternChatIntent("status"), "runtime-status");
   assert.equal(parseInternChatIntent("help"), "help");
   assert.equal(parseInternChatIntent("delete everything"), "unknown");
+});
+
+test("test_chat_can_explain_last_filing_outputs_without_rerunning_filing", async () => {
+  const repoPath = fs.mkdtempSync(path.join(os.tmpdir(), "ao1-intern-chat-"));
+  const runId = "2026-06-15T165357-834Z";
+  const outputRel = `runs/2026-06-15/${runId}/product-ideas-intern-agent-governance.md`;
+  fs.mkdirSync(path.dirname(path.join(repoPath, outputRel)), { recursive: true });
+  fs.writeFileSync(path.join(repoPath, outputRel), [
+    "# Intern Agent Governance",
+    "",
+    "Target concept: product/ideas/intern-agent-governance.md",
+    `Sync run: ${runId}`,
+    "",
+    "## Summary",
+    "",
+    "- AO1 should use Telegram to control the Intern instead of making users run npm commands.",
+    "  - Classification: product/brand",
+    "  - Kept because It updates the Intern user interface direction.",
+    "",
+    "## Evidence",
+    "",
+    "- message-1: whatsapp://chat/message-1"
+  ].join("\n"));
+  fs.mkdirSync(path.join(repoPath, ".ao1-intern"), { recursive: true });
+  fs.writeFileSync(path.join(repoPath, ".ao1-intern", "checkpoint.json"), JSON.stringify({
+    filed_runs: {
+      [runId]: {
+        status: "filed",
+        at: "2026-06-15T17:10:00.000Z",
+        outputs: [outputRel],
+        kb_writes: []
+      }
+    }
+  }, null, 2));
+
+  const response = await handleInternChatMessage({
+    message: {
+      channel: "telegram",
+      sender: "telegram:123456789",
+      text: "what did you write?"
+    },
+    config: CHAT_CONFIG,
+    repoPath,
+    fileLatestSyncFn: () => {
+      throw new Error("should not rerun filing");
+    }
+  });
+
+  assert.equal(response.status, "ok");
+  assert.equal(response.intent, "summarize-last-filing");
+  assert.match(response.reply, new RegExp(runId));
+  assert.match(response.reply, new RegExp(outputRel));
+  assert.match(response.reply, /product\/ideas\/intern-agent-governance\.md/);
+  assert.match(response.reply, /Telegram to control the Intern/);
+  assert.match(response.reply, /KB writes: none/);
 });
 
 test("test_telegram_webhook_parses_text_messages_for_chat_dispatch", async () => {
