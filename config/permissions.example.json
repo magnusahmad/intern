@@ -21,10 +21,10 @@
     ]
   },
   "network": {
-    "allow": ["model-provider", "github.com:read"]
+    "allow": ["model-provider", "github.com:read", "graph.facebook.com:write"]
   },
   "tools": {
-    "allow": ["git-status", "git-diff", "git-commit", "file-read", "file-write-runs", "hermes", "codex-exec"],
+    "allow": ["git-status", "git-diff", "git-commit", "file-read", "file-write-runs", "hermes", "codex-exec", "whatsapp-webhook", "whatsapp-send"],
     "deny": ["shell-unrestricted", "kb-write-unless-enabled"]
   }
 }

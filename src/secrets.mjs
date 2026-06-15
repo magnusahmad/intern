@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { execFileSync } from "node:child_process";
 
 const SECRET_PATTERNS = [
   /\bsk-[A-Za-z0-9_-]{16,}\b/,
@@ -40,4 +41,26 @@ export class FakeSecretProvider {
     }
     return this.values[ref];
   }
+}
+
+export class KeychainSecretProvider {
+  resolve(ref) {
+    const service = keychainServiceForRef(ref);
+    return execFileSync("/usr/bin/security", ["find-generic-password", "-s", service, "-w"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"]
+    }).trimEnd();
+  }
+}
+
+export function keychainServiceForRef(ref) {
+  if (!ref.startsWith("keychain://")) {
+    throw new Error(`Unsupported secret ref: ${ref}`);
+  }
+  const parsed = new URL(ref);
+  const service = [parsed.hostname, parsed.pathname.replace(/^\//, "")]
+    .filter(Boolean)
+    .join("/");
+  if (!service) throw new Error(`Invalid keychain ref: ${ref}`);
+  return service;
 }

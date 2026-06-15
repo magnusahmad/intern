@@ -26,15 +26,45 @@ WhatsApp senders must be explicitly allowlisted in config, and webhook verificat
     "primary_channel": "whatsapp",
     "whatsapp": {
       "enabled": false,
+      "host": "127.0.0.1",
+      "port": 17671,
+      "webhook_path": "/webhook",
       "allowed_senders": ["whatsapp:+15550000000"],
       "verify_token_ref": "keychain://ao1-intern/whatsapp-verify-token",
-      "app_secret_ref": "keychain://ao1-intern/whatsapp-app-secret"
+      "app_secret_ref": "keychain://ao1-intern/whatsapp-app-secret",
+      "access_token_ref": "keychain://ao1-intern/whatsapp-access-token",
+      "phone_number_id": "000000000000000",
+      "graph_api_base_url": "https://graph.facebook.com",
+      "graph_api_version": "v23.0",
+      "reply_to_unauthorized": false
     }
   }
 }
 ```
 
-The repo now contains the dependency-free chat control plane and WhatsApp webhook adapter. The remaining productization step is a reviewed webhook host/LaunchAgent that accepts WhatsApp Cloud API callbacks, verifies Meta signatures, dispatches approved messages into `handleInternChatMessage`, and sends replies back through the WhatsApp API.
+The repo now contains the dependency-free chat control plane, WhatsApp webhook adapter, local HTTP bridge, and outbound WhatsApp text sender. The bridge accepts WhatsApp Cloud API callbacks, verifies Meta signatures, dispatches approved messages into `handleInternChatMessage`, and sends replies back through the WhatsApp API.
+
+Local connection setup:
+
+1. Create an uncommitted local config from `config/ao1-intern.example.json`.
+2. Set `chat.whatsapp.enabled` to `true`.
+3. Replace `allowed_senders` with Magnus and Suley's normalized WhatsApp sender ids, such as `whatsapp:+15551234567`.
+4. Replace `phone_number_id` with the WhatsApp Business phone number id.
+5. Store runtime secrets in Keychain. The `keychain://ao1-intern/name` ref maps to the generic-password service `ao1-intern/name`.
+
+```bash
+security add-generic-password -a ao1-intern -s ao1-intern/whatsapp-verify-token -w '<verify-token>' -U
+security add-generic-password -a ao1-intern -s ao1-intern/whatsapp-app-secret -w '<app-secret>' -U
+security add-generic-password -a ao1-intern -s ao1-intern/whatsapp-access-token -w '<access-token>' -U
+```
+
+The bridge is internal plumbing and should be run by a reviewed host process or LaunchAgent, not by day-to-day users:
+
+```bash
+npm run intern -- whatsapp-bridge --config /path/to/local-ao1-intern.json
+```
+
+Register the public HTTPS URL that forwards to `http://127.0.0.1:17671/webhook` in the WhatsApp Business webhook settings using the same verify token stored in Keychain. Subscribe the webhook to inbound message events. Do not commit the local config, access token, app secret, verify token, or public tunnel credentials.
 
 ## Commands
 

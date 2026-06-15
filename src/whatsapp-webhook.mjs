@@ -95,7 +95,7 @@ function normalizeWhatsAppSender(sender = "") {
 function headerValue(headers, name) {
   const target = name.toLowerCase();
   for (const [key, value] of Object.entries(headers || {})) {
-    if (key.toLowerCase() === target) return value;
+    if (key.toLowerCase() === target) return Array.isArray(value) ? value[0] : value;
   }
   return "";
 }
