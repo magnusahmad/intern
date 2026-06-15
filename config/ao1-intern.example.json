@@ -8,6 +8,15 @@
   "filing": {
     "commit_policy": "per-run"
   },
+  "chat": {
+    "primary_channel": "whatsapp",
+    "whatsapp": {
+      "enabled": false,
+      "allowed_senders": ["whatsapp:+15550000000"],
+      "verify_token_ref": "keychain://ao1-intern/whatsapp-verify-token",
+      "app_secret_ref": "keychain://ao1-intern/whatsapp-app-secret"
+    }
+  },
   "model_provider": {
     "credential_ref": "keychain://ao1-intern/model-provider"
   },

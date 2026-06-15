@@ -2,6 +2,40 @@
 
 AO1 dogfood repo for the internal Intern agent. V1 observes AO1 KB syncs, reads latest raw connector manifests, filters important information, and writes KB-ready markdown into this repo for review and later KB write-back.
 
+## Intended User Experience
+
+The operator surface should be chat-first. Magnus and Suley should not need to run npm commands during normal use; those commands are internal plumbing for tests, scheduled jobs, and setup.
+
+The primary planned control channel is WhatsApp. Once the WhatsApp webhook bridge is connected, use messages like:
+
+```text
+review latest artifacts
+review latest artefacts and update the kb
+review generated policy artifacts
+status
+help
+```
+
+The chat router maps `review latest artifacts` / `review latest artefacts and update the kb` to the `ao1-kb-filing` skill and the same `fileLatestSync` path used by the scheduled observer. If `kb_write_enabled` is still false, the Intern stages KB-ready markdown in this repo only. If the KB write switch and explicit KB write-root permission are enabled, the same chat intent can write to the KB.
+
+WhatsApp senders must be explicitly allowlisted in config, and webhook verification secrets stay behind Keychain refs:
+
+```json
+{
+  "chat": {
+    "primary_channel": "whatsapp",
+    "whatsapp": {
+      "enabled": false,
+      "allowed_senders": ["whatsapp:+15550000000"],
+      "verify_token_ref": "keychain://ao1-intern/whatsapp-verify-token",
+      "app_secret_ref": "keychain://ao1-intern/whatsapp-app-secret"
+    }
+  }
+}
+```
+
+The repo now contains the dependency-free chat control plane and WhatsApp webhook adapter. The remaining productization step is a reviewed webhook host/LaunchAgent that accepts WhatsApp Cloud API callbacks, verifies Meta signatures, dispatches approved messages into `handleInternChatMessage`, and sends replies back through the WhatsApp API.
+
 ## Commands
 
 ```bash
