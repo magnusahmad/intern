@@ -157,6 +157,61 @@ test("test_no_filing_when_no_new_curatable_manifest_items", () => {
   assert.equal(checkpoint.filed_runs[runId].status, "no-curatable-items");
 });
 
+test("test_latest_filing_uses_latest_curated_nonempty_manifest_from_batch", () => {
+  const { intern, kb } = makeTempRepo();
+  writeKbFixture(kb, { runId: "2026-06-15T150000-982Z", added: 0 });
+  const curatedRunId = "2026-06-15T165357-834Z";
+  const emptyRunId = "2026-06-15T165741-786Z";
+  const uncuratedRunId = "2026-06-15T180001-984Z";
+  writeRawRun(kb, {
+    connectorId: "whatsapp",
+    runId: curatedRunId,
+    item: {
+      source: "whatsapp",
+      source_item_id: "message-1",
+      source_url: "whatsapp://chat/message-1",
+      content_type: "text",
+      title: "Mobile-to-CLI Intern follow-up",
+      curatable: true,
+      body_text: "AO1 should use Telegram to control the Intern instead of making users run npm commands."
+    }
+  });
+  writeRawRun(kb, {
+    connectorId: "whatsapp",
+    runId: emptyRunId,
+    itemCount: 0,
+    itemPaths: []
+  });
+  writeRawRun(kb, {
+    connectorId: "local-files",
+    runId: uncuratedRunId,
+    item: {
+      source: "local-files",
+      source_item_id: "docs/status.md",
+      source_url: "file:///docs/status.md",
+      content_type: "md",
+      title: "Later uncurated sync",
+      curatable: true,
+      body_text: "This later sync has not been curated yet."
+    }
+  });
+  fs.writeFileSync(path.join(kb, ".ao1", "job-history.jsonl"), [
+    JSON.stringify({ type: "sync", connector_id: "local-files", run_id: "2026-06-15T150000-982Z", item_count: 1, at: "2026-06-15T15:00:01.115Z" }),
+    JSON.stringify({ type: "curate", reason: "scheduled-resync", manifest_count: 1, added: 0, pruned: 1, at: "2026-06-15T15:00:01.181Z" }),
+    JSON.stringify({ type: "sync", connector_id: "whatsapp", run_id: curatedRunId, item_count: 1, at: "2026-06-15T16:54:28.279Z" }),
+    JSON.stringify({ type: "sync", connector_id: "whatsapp", run_id: emptyRunId, item_count: 0, at: "2026-06-15T16:58:13.104Z" }),
+    JSON.stringify({ type: "curate", reason: "manual-curate", manifest_count: 2, added: 2, pruned: 9, at: "2026-06-15T16:59:56.269Z" }),
+    JSON.stringify({ type: "sync", connector_id: "local-files", run_id: uncuratedRunId, item_count: 1, at: "2026-06-15T18:00:02.140Z" })
+  ].join("\n") + "\n");
+
+  const result = fileLatestSync({ kbPath: kb, repoPath: intern, commit: false });
+
+  assert.equal(result.status, "filed");
+  assert.equal(result.runId, curatedRunId);
+  assert.equal(result.outputs.length, 1);
+  assert.match(fs.readFileSync(result.outputs[0], "utf8"), /Telegram to control the Intern/);
+});
+
 test("test_kb_write_back_is_disabled_without_permission_switch", () => {
   const { intern, kb } = makeTempRepo();
   writeKbFixture(kb);
@@ -229,4 +284,20 @@ function kbWriteManifest(kb, { enabled, writeRoots = [kb] } = {}) {
     network: { allow: [] },
     tools: { allow: [], deny: [] }
   };
+}
+
+function writeRawRun(kb, { connectorId, runId, item, itemCount = 1, itemPaths = ["items/item.json"] }) {
+  const runDir = path.join(kb, ".ao1", "raw", "clients", "ao1", "connectors", connectorId, "runs", runId);
+  fs.mkdirSync(path.join(runDir, "items"), { recursive: true });
+  fs.writeFileSync(path.join(runDir, "manifest.json"), JSON.stringify({
+    client_id: "ao1",
+    connector_id: connectorId,
+    run_id: runId,
+    status: "succeeded",
+    item_count: itemCount,
+    item_paths: itemPaths
+  }, null, 2));
+  if (item) {
+    fs.writeFileSync(path.join(runDir, "items", "item.json"), JSON.stringify(item, null, 2));
+  }
 }

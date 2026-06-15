@@ -104,6 +104,7 @@ test("test_chat_intent_can_review_generated_policy_and_schedule_artifacts", asyn
 test("test_chat_intent_parser_keeps_operator_commands_small_and_predictable", () => {
   assert.equal(parseInternChatIntent("review latest artefacts"), "review-latest-sync");
   assert.equal(parseInternChatIntent("file latest sync"), "review-latest-sync");
+  assert.equal(parseInternChatIntent("try the more recent ones"), "review-latest-sync");
   assert.equal(parseInternChatIntent("review generated schedule artifacts"), "review-generated-artifacts");
   assert.equal(parseInternChatIntent("status"), "runtime-status");
   assert.equal(parseInternChatIntent("help"), "help");

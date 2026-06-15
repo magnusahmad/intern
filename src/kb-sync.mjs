@@ -13,21 +13,43 @@ export function loadJobHistory(kbPath) {
 export function findLatestSyncRun(kbPath, requestedRunId = null) {
   const history = loadJobHistory(kbPath);
   const syncs = history.filter((entry) => entry.type === "sync");
-  const sync = requestedRunId
-    ? syncs.find((entry) => entry.run_id === requestedRunId)
-    : syncs.at(-1);
+  const batches = curatedSyncBatches(history);
 
-  if (!sync) {
-    throw new Error(requestedRunId ? `No sync run found for ${requestedRunId}` : "No sync runs found");
+  if (requestedRunId) {
+    for (const batch of batches) {
+      const sync = batch.syncs.find((entry) => entry.run_id === requestedRunId);
+      if (sync) return { sync, curate: batch.curate };
+    }
+    const sync = syncs.find((entry) => entry.run_id === requestedRunId);
+    if (!sync) throw new Error(`No sync run found for ${requestedRunId}`);
+    return { sync, curate: null };
   }
 
-  const syncIndex = history.indexOf(sync);
-  const nextSyncIndex = history.findIndex((entry, index) => index > syncIndex && entry.type === "sync");
-  const endIndex = nextSyncIndex === -1 ? history.length : nextSyncIndex;
-  const following = history.slice(syncIndex + 1, endIndex);
-  const curate = following.find((entry) => entry.type === "curate") || null;
+  for (let i = batches.length - 1; i >= 0; i -= 1) {
+    const batch = batches[i];
+    if (!hasNewCuratedItems(batch.curate)) continue;
+    const sync = [...batch.syncs].reverse().find((entry) => Number(entry.item_count || 0) > 0) || batch.syncs.at(-1);
+    if (sync) return { sync, curate: batch.curate };
+  }
 
-  return { sync, curate };
+  const sync = syncs.at(-1);
+  if (!sync) throw new Error("No sync runs found");
+  const batch = batches.find((candidate) => candidate.syncs.includes(sync));
+  return { sync, curate: batch?.curate || null };
+}
+
+function curatedSyncBatches(history) {
+  const batches = [];
+  let pendingSyncs = [];
+  for (const entry of history) {
+    if (entry.type === "sync") {
+      pendingSyncs.push(entry);
+    } else if (entry.type === "curate") {
+      batches.push({ syncs: pendingSyncs, curate: entry });
+      pendingSyncs = [];
+    }
+  }
+  return batches;
 }
 
 export function getKbCron(kbPath) {

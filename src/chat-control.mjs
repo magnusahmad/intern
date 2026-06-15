@@ -16,6 +16,8 @@ export function parseInternChatIntent(text = "") {
   if (/\bhelp\b|\bcommands?\b/.test(normalized)) return "help";
   if (/\bstatus\b|\bhealth\b|\bhealthy\b|\bready\b/.test(normalized)) return "runtime-status";
   if (mentionsArtifact && mentionsGenerated) return "review-generated-artifacts";
+  if (/\btry\b.*\b(more recent|newer|latest)\b/.test(normalized)) return "review-latest-sync";
+  if (/\b(more recent|newer)\b.*\bones?\b/.test(normalized)) return "review-latest-sync";
   if (
     /\bfile latest sync\b/.test(normalized) ||
     /\breview latest sync\b/.test(normalized) ||
