@@ -69,6 +69,11 @@ export function generateHostBrokerPolicy({ manifest, config = {} }) {
         ignore_user_config: codexConfig.ignoreUserConfig,
         ephemeral: codexConfig.ephemeral
       },
+      shell: {
+        allow: (manifest.tools?.allow || []).includes("shell-unrestricted"),
+        command: "/bin/zsh",
+        mode: "unrestricted"
+      },
       deny: manifest.tools?.deny || []
     },
     filesystem: {

@@ -14,7 +14,8 @@ test("test_permission_manifest_blocks_undeclared_access", () => {
   assert.equal(validatePermission(manifest, { type: "network", target: "github.com:read" }), true);
   assert.equal(validatePermission(manifest, { type: "network", target: "slack.com:write" }), false);
   assert.equal(validatePermission(manifest, { type: "tool", tool: "codex-exec" }), true);
-  assert.equal(validatePermission(manifest, { type: "tool", tool: "shell-unrestricted" }), false);
+  assert.equal(validatePermission(manifest, { type: "tool", tool: "shell-unrestricted" }), true);
+  assert.equal(validatePermission(manifest, { type: "tool", tool: "unreviewed-tool" }), false);
 });
 
 test("test_committed_config_contains_no_secret_values", () => {

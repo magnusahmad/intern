@@ -6,6 +6,7 @@ const ALLOWED_INTENTS = new Set([
   "summarize-last-filing",
   "review-generated-artifacts",
   "runtime-status",
+  "run-shell-command",
   "help",
   "unknown"
 ]);
@@ -15,6 +16,10 @@ export function heuristicPlanChatIntent({ text = "" } = {}) {
   const mentionsArtifact = /\bartifacts?\b|\bartefacts?\b/.test(normalized);
   const mentionsGenerated = /\bgenerated\b|\bpolicy\b|\bschedule\b|\bsandbox\b|\blaunchagent\b/.test(normalized);
 
+  const shellCommand = extractExplicitShellCommand(text);
+  if (shellCommand) return chatPlan("run-shell-command", "heuristic", "Explicit shell command requested.", 1, { command: shellCommand });
+  const codexCommand = extractCodexPrompt(text);
+  if (codexCommand) return chatPlan("run-shell-command", "heuristic", "Codex prompt requested.", 1, { command: codexCommand });
   if (/\bhelp\b|\bcommands?\b/.test(normalized)) return chatPlan("help", "heuristic");
   if (/\bstatus\b|\bhealth\b|\bhealthy\b|\bready\b/.test(normalized)) return chatPlan("runtime-status", "heuristic");
   if (mentionsArtifact && mentionsGenerated) return chatPlan("review-generated-artifacts", "heuristic");
@@ -102,6 +107,10 @@ export function buildChatIntentPlannerPrompt({ text = "" } = {}) {
         use_when: "The user asks if the Intern is ready, healthy, working, connected, or asks for status."
       },
       {
+        intent: "run-shell-command",
+        use_when: "The user wants the Intern to do arbitrary machine work, run terminal commands, inspect files with shell tools, start processes, run tests, use git, or prompt Codex/Hermes through CLI commands. Include a `command` string suitable for `/bin/zsh -lc`. For Codex requests, prefer `codex exec --cd /Users/magnus/Documents/Projects/ao1-intern '<prompt>'` unless the user gives a more specific command."
+      },
+      {
         intent: "help",
         use_when: "The user asks what the Intern can do or asks for commands."
       },
@@ -114,18 +123,19 @@ export function buildChatIntentPlannerPrompt({ text = "" } = {}) {
       output: "Return exactly one JSON object and no Markdown.",
       shape: {
         intent: "one allowed intent string",
+        command: "required only for run-shell-command; a single /bin/zsh -lc command string",
         confidence: "number from 0 to 1",
         reason: "short reason, no secrets"
       },
-      safety: "Do not invent new tools. Do not claim to have performed work. Only choose an allowed intent."
+      safety: "Do not claim to have performed work. Only choose an allowed intent. `run-shell-command` is intentionally unrestricted and may execute arbitrary shell commands for the allowlisted operator."
     }
   };
 
   return [
     "You are Hermes planning AO1 Intern chat actions.",
-    "The user may ask naturally, but the Intern can only run predefined skills.",
+    "The user may ask naturally, and the Intern can run arbitrary shell commands through the approved `run-shell-command` skill.",
     "Choose the single best allowed intent from the payload.",
-    "Return exactly one JSON object with `intent`, `confidence`, and `reason`.",
+    "Return exactly one JSON object with `intent`, optional `command`, `confidence`, and `reason`.",
     JSON.stringify(payload, null, 2)
   ].join("\n\n");
 }
@@ -136,17 +146,43 @@ export function parseChatIntentPlannerOutput(text = "") {
 }
 
 function normalizeChatPlan(value, source) {
-  return chatPlan(value?.intent, source, value?.reason, value?.confidence);
+  return chatPlan(value?.intent, source, value?.reason, value?.confidence, {
+    command: value?.command
+  });
 }
 
-function chatPlan(intent, source, reason = "", confidence = 1) {
+function chatPlan(intent, source, reason = "", confidence = 1, extra = {}) {
   const normalizedIntent = ALLOWED_INTENTS.has(intent) ? intent : "unknown";
   return {
     intent: normalizedIntent,
     source,
     confidence: Number.isFinite(Number(confidence)) ? Number(confidence) : 0,
-    reason: String(reason || "")
+    reason: String(reason || ""),
+    ...(extra.command ? { command: String(extra.command) } : {})
   };
+}
+
+function extractExplicitShellCommand(text = "") {
+  const value = String(text || "").trim();
+  const codeBlock = value.match(/```(?:bash|sh|zsh|shell)?\s*([\s\S]*?)```/i);
+  if (codeBlock?.[1]?.trim()) return codeBlock[1].trim();
+  const inline = value.match(/`([^`]+)`/);
+  if (inline?.[1]?.trim()) return inline[1].trim();
+  const prefixed = value.match(/^(?:run|execute|shell|terminal)\s*[:\-]\s*(.+)$/i);
+  if (prefixed?.[1]?.trim()) return prefixed[1].trim();
+  return "";
+}
+
+function extractCodexPrompt(text = "") {
+  const value = String(text || "").trim();
+  const match = value.match(/^(?:ask|prompt|run)\s+codex\s*(?:to|:|-)?\s*(.+)$/i);
+  const prompt = match?.[1]?.trim();
+  if (!prompt) return "";
+  return `codex exec --cd /Users/magnus/Documents/Projects/ao1-intern ${shellQuote(prompt)}`;
+}
+
+function shellQuote(value) {
+  return `'${String(value).replaceAll("'", "'\\''")}'`;
 }
 
 function extractJsonObject(text) {

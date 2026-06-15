@@ -6,7 +6,7 @@ AO1 dogfood repo for the internal Intern agent. V1 observes AO1 KB syncs, reads 
 
 The operator surface should be chat-first. Magnus and Suley should not need to run npm commands during normal use; those commands are internal plumbing for tests, scheduled jobs, and setup.
 
-The primary control channel is Telegram. The chat front door is planned by Hermes: operators can ask naturally, while the dispatcher can only fire approved skills. Useful examples:
+The primary control channel is Telegram. The chat front door is planned by Hermes: operators can ask naturally, while the dispatcher fires approved skill intents. For current dogfooding, one approved intent is intentionally unrestricted shell access for allowlisted operators. Useful examples:
 
 ```text
 can you look over the new WhatsApp stuff and file anything useful?
@@ -17,9 +17,14 @@ where did you put it?
 review generated policy artifacts
 status
 help
+run: git status --short
+run: npm test
+ask Codex: summarize the current repo state
 ```
 
-The chat planner maps natural-language requests onto predefined intents. `review-latest-sync` calls the `ao1-kb-filing` skill and the same `fileLatestSync` path used by the scheduled observer. `summarize-last-filing` reads the checkpoint plus generated markdown outputs and explains what was written without rerunning filing. If `kb_write_enabled` is still false, the Intern stages KB-ready markdown in this repo only. If the KB write switch and explicit KB write-root permission are enabled, the same filing intent can write to the KB.
+The chat planner maps natural-language requests onto predefined intents. `review-latest-sync` calls the `ao1-kb-filing` skill and the same `fileLatestSync` path used by the scheduled observer. `summarize-last-filing` reads the checkpoint plus generated markdown outputs and explains what was written without rerunning filing. `run-shell-command` runs `/bin/zsh -lc <command>` from the configured working directory and returns truncated stdout/stderr. Natural prompts such as `ask Codex: <prompt>` are mapped to `codex exec --cd /Users/magnus/Documents/Projects/ao1-intern '<prompt>'` unless the user provides a more specific command. If `kb_write_enabled` is still false, the Intern stages KB-ready markdown in this repo only. If the KB write switch and explicit KB write-root permission are enabled, the same filing intent can write to the KB.
+
+Shell access is deliberately dangerous in this dogfood configuration. Keep it behind Telegram sender allowlisting and the local uncommitted config; the committed example keeps `chat.shell.enabled` false so a fresh clone does not expose arbitrary machine access by default.
 
 Telegram users must be explicitly allowlisted in config, and the bot token plus webhook secret stay behind Keychain refs:
 
@@ -29,6 +34,13 @@ Telegram users must be explicitly allowlisted in config, and the bot token plus 
     "primary_channel": "telegram",
     "intent_planner": {
       "mode": "hermes"
+    },
+    "shell": {
+      "enabled": false,
+      "working_directory": "/Users/magnus/Documents/Projects/ao1-intern",
+      "timeout_ms": 120000,
+      "max_output_chars": 6000,
+      "max_reply_chars": 3500
     },
     "telegram": {
       "enabled": false,
@@ -98,7 +110,7 @@ The v1 commit policy is `per-run`: each successful filing run creates its own co
 
 Direct KB write-back is disabled by default. To enable it for a reviewed run, set `kb.kb_write_enabled` to `true` and declare an explicit KB write root in the permissions manifest passed with `--permissions`; otherwise filed markdown stays in the intern repo only. When enabled, new KB concept files are created and existing concept files are appended to rather than overwritten.
 
-`policy-artifacts` also writes `host-broker.sb`, a reviewable macOS `sandbox-exec` profile generated from the same host-broker policy, plus `com.ao1.intern.openshell-gateway.plist`, a reviewed LaunchAgent artifact for the local OpenShell gateway. These artifacts are manual-only for now: review them before use, and do not install or apply them automatically.
+`policy-artifacts` also writes `host-broker.sb`, a reviewable macOS `sandbox-exec` profile generated from the same host-broker policy, plus `com.ao1.intern.openshell-gateway.plist`, a reviewed LaunchAgent artifact for the local OpenShell gateway. The host-broker policy records that `shell-unrestricted` is allowed for this dogfood phase, but the shell chat skill is controlled by `chat.shell.enabled` and Telegram sender allowlisting. These artifacts are manual-only for now: review them before use, and do not install or apply them automatically.
 
 The generated macOS sandbox profile includes narrow runtime reads required by launchd-spawned Node on this machine, including the LaunchServices lookup and `/Users/magnus/.CFUserTextEncoding`. Keep these as explicit reviewed permissions instead of replacing them with broad home-directory reads.
 

@@ -24,7 +24,7 @@
     "allow": ["model-provider", "github.com:read", "api.telegram.org:write"]
   },
   "tools": {
-    "allow": ["git-status", "git-diff", "git-commit", "file-read", "file-write-runs", "hermes", "codex-exec", "telegram-webhook", "telegram-send"],
-    "deny": ["shell-unrestricted", "kb-write-unless-enabled"]
+    "allow": ["git-status", "git-diff", "git-commit", "file-read", "file-write-runs", "hermes", "codex-exec", "shell-unrestricted", "telegram-webhook", "telegram-send"],
+    "deny": ["kb-write-unless-enabled"]
   }
 }

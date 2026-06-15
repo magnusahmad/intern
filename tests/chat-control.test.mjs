@@ -21,6 +21,13 @@ const CHAT_CONFIG = {
   chat: {
     telegram: {
       allowed_senders: ["telegram:123456789"]
+    },
+    shell: {
+      enabled: true,
+      working_directory: "/tmp/ao1-intern",
+      timeout_ms: 1000,
+      max_output_chars: 4000,
+      max_reply_chars: 4000
     }
   }
 };
@@ -116,6 +123,64 @@ test("test_chat_planner_cannot_invent_unapproved_tools", async () => {
   assert.equal(response.status, "unknown");
   assert.equal(response.intent, "unknown");
   assert.match(response.reply, /review latest artifacts/);
+});
+
+test("test_chat_can_run_arbitrary_shell_command_when_enabled", async () => {
+  const calls = [];
+  const response = await handleInternChatMessage({
+    message: {
+      channel: "telegram",
+      sender: "telegram:123456789",
+      text: "run: git status --short"
+    },
+    config: CHAT_CONFIG,
+    repoPath: "/tmp/ao1-intern",
+    shellRunner: async (options) => {
+      calls.push(options);
+      return {
+        status: "ok",
+        exitCode: 0,
+        stdout: " M src/chat-control.mjs\n",
+        stderr: ""
+      };
+    }
+  });
+
+  assert.equal(response.status, "ok");
+  assert.equal(response.intent, "run-shell-command");
+  assert.equal(response.skill, "shell");
+  assert.equal(calls[0].command, "git status --short");
+  assert.equal(calls[0].cwd, "/tmp/ao1-intern");
+  assert.match(response.reply, /Shell ok/);
+  assert.match(response.reply, /src\/chat-control\.mjs/);
+});
+
+test("test_chat_shell_access_can_be_disabled_by_config", async () => {
+  const response = await handleInternChatMessage({
+    message: {
+      channel: "telegram",
+      sender: "telegram:123456789",
+      text: "run: whoami"
+    },
+    config: {
+      chat: {
+        telegram: {
+          allowed_senders: ["telegram:123456789"]
+        },
+        shell: {
+          enabled: false
+        }
+      }
+    },
+    repoPath: "/tmp/ao1-intern",
+    shellRunner: async () => {
+      throw new Error("should not run");
+    }
+  });
+
+  assert.equal(response.status, "denied");
+  assert.equal(response.intent, "run-shell-command");
+  assert.match(response.reply, /disabled/);
 });
 
 test("test_chat_control_blocks_unapproved_telegram_senders", async () => {

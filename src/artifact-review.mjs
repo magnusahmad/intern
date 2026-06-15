@@ -111,6 +111,7 @@ function checkHostBrokerPolicy({ file, repoPath }) {
 
   const codex = policy.tools?.codex || {};
   const hermes = policy.tools?.hermes || {};
+  const shell = policy.tools?.shell || {};
   const writeRoots = policy.filesystem?.write || [];
   const deny = policy.tools?.deny || [];
   const secretRefs = policy.secrets?.allowed_refs || [];
@@ -120,7 +121,8 @@ function checkHostBrokerPolicy({ file, repoPath }) {
     expectEqual("host broker execution boundary", policy.execution_boundary, "host-broker"),
     expectEqual("host broker KB write switch", policy.filesystem?.kb_write_enabled, false, "KB write switch must remain disabled for M5 review."),
     expectTrue("host broker write roots", writeRoots.length > 0 && writeRoots.every((entry) => isInside(expectedRepoRoot, entry.path)), "Write roots must stay inside the Intern repo."),
-    expectTrue("host broker denied tools", deny.includes("shell-unrestricted") && deny.includes("kb-write-unless-enabled"), "Policy must deny unrestricted shell and KB writes without the switch."),
+    expectTrue("host broker shell access", shell.allow === true && shell.command === "/bin/zsh" && shell.mode === "unrestricted" && !deny.includes("shell-unrestricted"), "Policy must explicitly allow unrestricted shell in dangerous dogfood mode."),
+    expectTrue("host broker KB write guard", deny.includes("kb-write-unless-enabled"), "Policy must deny KB writes without the switch."),
     expectTrue("host broker secret refs", secretRefs.length > 0 && secretRefs.every((ref) => String(ref).startsWith("keychain://")), "Secrets must be Keychain refs, not values."),
     expectEqual("Hermes command", hermes.command, "/Users/magnus/.local/bin/hermes"),
     expectEqual("Hermes mode", hermes.mode, "oneshot-json-finalizer"),

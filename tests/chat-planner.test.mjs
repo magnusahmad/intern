@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   buildChatIntentPlannerPrompt,
   createHermesChatIntentPlanner,
+  heuristicPlanChatIntent,
   parseChatIntentPlannerOutput,
   selectChatIntentPlanner
 } from "../src/chat-planner.mjs";
@@ -46,7 +47,8 @@ test("test_chat_planner_prompt_limits_hermes_to_predefined_skills", () => {
   assert.match(prompt, /review-latest-sync/);
   assert.match(prompt, /summarize-last-filing/);
   assert.match(prompt, /review-generated-artifacts/);
-  assert.match(prompt, /Do not invent new tools/);
+  assert.match(prompt, /run-shell-command/);
+  assert.match(prompt, /arbitrary shell commands/);
 });
 
 test("test_chat_planner_rejects_unknown_planner_intents", () => {
@@ -57,6 +59,17 @@ test("test_chat_planner_rejects_unknown_planner_intents", () => {
   }));
 
   assert.equal(plan.intent, "unknown");
+});
+
+test("test_heuristic_chat_planner_supports_explicit_shell_and_codex_prompts", () => {
+  const shell = heuristicPlanChatIntent({ text: "run: git status --short" });
+  assert.equal(shell.intent, "run-shell-command");
+  assert.equal(shell.command, "git status --short");
+
+  const codex = heuristicPlanChatIntent({ text: "ask codex to summarize the repo status" });
+  assert.equal(codex.intent, "run-shell-command");
+  assert.match(codex.command, /codex exec/);
+  assert.match(codex.command, /summarize the repo status/);
 });
 
 test("test_chat_planner_uses_host_broker_for_hermes_mode", () => {

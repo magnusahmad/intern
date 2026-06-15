@@ -17,7 +17,8 @@ test("test_permission_manifest_generates_runtime_policy", () => {
   assert.equal(policy.filesystem.kb_write_enabled, false);
   assert.equal(policy.network.allow.some((entry) => entry.target === "github.com:read"), true);
   assert.equal(policy.tools.allow.includes("codex-exec"), true);
-  assert.equal(policy.tools.deny.includes("shell-unrestricted"), true);
+  assert.equal(policy.tools.allow.includes("shell-unrestricted"), true);
+  assert.equal(policy.tools.deny.includes("shell-unrestricted"), false);
 });
 
 test("test_policy_artifacts_are_reviewable_json_and_instructions", () => {
@@ -132,6 +133,9 @@ test("test_host_broker_policy_limits_hermes_codex_and_secrets", () => {
   assert.equal(policy.tools.codex.command, "codex");
   assert.equal(policy.tools.codex.sandbox, "read-only");
   assert.equal(policy.tools.codex.ignore_user_config, true);
+  assert.equal(policy.tools.shell.allow, true);
+  assert.equal(policy.tools.shell.command, "/bin/zsh");
+  assert.equal(policy.tools.shell.mode, "unrestricted");
   assert.equal(policy.filesystem.kb_write_enabled, false);
   assert.equal(policy.filesystem.write.every((entry) => entry.path.includes("/ao1-intern/")), true);
   assert.deepEqual(policy.secrets.allowed_refs.sort(), [

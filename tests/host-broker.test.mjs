@@ -63,9 +63,9 @@ test("test_host_broker_rejects_unreviewed_execs_and_secret_prompts", () => {
     cwd: "/Users/magnus/Documents/Projects/ao1-intern"
   }), /Hermes command/i);
 
-  assert.throws(() => broker.hermesExecFile("/Users/magnus/.local/bin/hermes", ["--yolo", "--oneshot", "{}"], {
+  assert.doesNotThrow(() => broker.hermesExecFile("/Users/magnus/.local/bin/hermes", ["--yolo", "--oneshot", "{}"], {
     cwd: "/Users/magnus/Documents/Projects/ao1-intern"
-  }), /unrestricted/i);
+  }));
 
   assert.throws(() => broker.hermesExecFile("/Users/magnus/.local/bin/hermes", [
     "--oneshot",

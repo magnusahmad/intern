@@ -7,6 +7,7 @@ import { ensureInside, readJson } from "./fs-util.mjs";
 import { generateHostBrokerPolicy } from "./policy.mjs";
 import { probeRuntime } from "./runtime-probe.mjs";
 import { selectRuntimeClassifier } from "./runtime-classifier.mjs";
+import { formatShellReply, runShellSkill } from "./shell-skill.mjs";
 
 const FILING_SKILL = "ao1-kb-filing";
 
@@ -22,6 +23,7 @@ export async function handleInternChatMessage({
   permissionsManifest,
   classifier,
   intentPlanner,
+  shellRunner = runShellSkill,
   fileLatestSyncFn = fileLatestSync,
   reviewArtifactsFn = reviewArtifacts,
   runtimeProbeFn = probeRuntime
@@ -74,6 +76,36 @@ export async function handleInternChatMessage({
     };
   }
 
+  if (intent === "run-shell-command") {
+    const shellConfig = config.chat?.shell || {};
+    if (shellConfig.enabled !== true) {
+      return {
+        status: "denied",
+        intent,
+        skill: "shell",
+        reply: "Shell access is disabled for AO1 Intern."
+      };
+    }
+    const command = plan.command || message?.text || "";
+    const result = await shellRunner({
+      command,
+      cwd: shellConfig.working_directory || repoPath,
+      timeoutMs: shellConfig.timeout_ms,
+      maxOutputChars: shellConfig.max_output_chars
+    });
+    return {
+      status: result.status === "ok" ? "ok" : "failed",
+      intent,
+      skill: "shell",
+      result,
+      reply: formatShellReply({
+        command,
+        result,
+        maxReplyChars: shellConfig.max_reply_chars
+      })
+    };
+  }
+
   if (intent === "runtime-status") {
     const result = await runtimeProbeFn({ commands: config.runtime?.commands || {} });
     return {
@@ -97,6 +129,8 @@ export async function handleInternChatMessage({
         "review latest artifacts",
         "what did you write?",
         "where did you put it?",
+        "run: <shell command>",
+        "ask Codex: <prompt>",
         "review generated policy artifacts",
         "status"
       ].join("\n")
@@ -106,7 +140,7 @@ export async function handleInternChatMessage({
   return {
     status: "unknown",
     intent: "unknown",
-    reply: "I do not know how to do that yet. Try: review latest artifacts, what did you write?, review generated policy artifacts, or status."
+    reply: "I do not know how to do that yet. Try: review latest artifacts, what did you write?, run: git status, ask Codex: <prompt>, review generated policy artifacts, or status."
   };
 }
 
