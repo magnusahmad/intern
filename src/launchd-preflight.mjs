@@ -13,6 +13,7 @@ export function checkLaunchdPreflight({
   config = {},
   platform = process.platform,
   homePath = os.homedir(),
+  fileAccessProbe = probeLaunchdFileReadAccess,
   accessProbe = probeLaunchdNodeReadAccess
 } = {}) {
   const nodeCommand = scheduledNodeCommand({ config });
@@ -55,7 +56,27 @@ export function checkLaunchdPreflight({
       accessProbe: probe
     });
   }
+  const fileProbe = fileAccessProbe({
+    probeKind: "launchd-file-read",
+    targets
+  });
+  const failedProbe = {
+    ...probe,
+    fileProbe
+  };
 
+  return manualActionRequired({
+    platform,
+    nodeCommand,
+    nodeResolvedPath,
+    protectedRoots,
+    protectedPaths,
+    accessProbe: failedProbe,
+    blocker: `macOS Full Disk Access is required for launchd-spawned Node (${nodeCommand}) before it can read protected repo paths.`
+  });
+}
+
+function manualActionRequired({ platform, nodeCommand, nodeResolvedPath, protectedRoots, protectedPaths, accessProbe, blocker }) {
   return {
     status: "manual-action-required",
     ready: false,
@@ -64,10 +85,8 @@ export function checkLaunchdPreflight({
     nodeResolvedPath,
     protectedRoots,
     protectedPaths,
-    accessProbe: probe,
-    blockers: [
-      `macOS Full Disk Access is required for launchd-spawned Node (${nodeCommand}) before it can read protected repo paths.`
-    ],
+    accessProbe,
+    blockers: [blocker],
     manualActions: [
       `Grant Full Disk Access to ${formatNodeForManualAction({ nodeCommand, nodeResolvedPath })} in System Settings > Privacy & Security > Full Disk Access, then rerun launchd-preflight.`
     ]
@@ -107,6 +126,92 @@ function launchdAccessTargets({ repoPath, kbPath }) {
     path.join(repoPath, "src", "cli.mjs"),
     kbPath ? path.join(kbPath, "index.md") : null
   ].filter(Boolean);
+}
+
+export function probeLaunchdFileReadAccess({
+  targets,
+  launchctlCommand = "launchctl",
+  timeoutMs = 3000
+}) {
+  const label = `com.ao1.intern.launchd-file-preflight.${process.pid}.${Date.now()}.${crypto.randomUUID()}`;
+  const stdoutPath = path.join(os.tmpdir(), `${label}.out`);
+  const stderrPath = path.join(os.tmpdir(), `${label}.err`);
+
+  try {
+    execFileSync(launchctlCommand, [
+      "submit",
+      "-l",
+      label,
+      "-o",
+      stdoutPath,
+      "-e",
+      stderrPath,
+      "--",
+      "/bin/cat",
+      ...targets
+    ], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"]
+    });
+  } catch (error) {
+    cleanupLaunchdProbe({ launchctlCommand, label });
+    return {
+      ok: false,
+      probeKind: "launchd-file-read",
+      label,
+      targets,
+      error: {
+        phase: "submit",
+        code: error.code || null,
+        status: error.status ?? null,
+        signal: error.signal || null,
+        stderr: String(error.stderr || "").trim()
+      },
+      stderr: ""
+    };
+  }
+
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const state = readLaunchdState({ launchctlCommand, label });
+    if (/last exit code = 0/.test(state)) {
+      cleanupLaunchdProbe({ launchctlCommand, label, stdoutPath, stderrPath });
+      return {
+        ok: true,
+        probeKind: "launchd-file-read",
+        label,
+        targets
+      };
+    }
+    const stderr = readOptionalFile(stderrPath);
+    if (stderr.trim()) {
+      cleanupLaunchdProbe({ launchctlCommand, label, stdoutPath, stderrPath });
+      return {
+        ok: false,
+        probeKind: "launchd-file-read",
+        label,
+        targets,
+        stderr: stderr.trim(),
+        launchdState: state
+      };
+    }
+    sleepSync(200);
+  }
+
+  const launchdState = readLaunchdState({ launchctlCommand, label });
+  cleanupLaunchdProbe({ launchctlCommand, label, stdoutPath, stderrPath });
+  return {
+    ok: false,
+    probeKind: "launchd-file-read",
+    label,
+    targets,
+    stderr: readOptionalFile(stderrPath).trim(),
+    launchdState,
+    error: {
+      phase: "timeout",
+      timeoutMs
+    }
+  };
 }
 
 export function probeLaunchdNodeReadAccess({

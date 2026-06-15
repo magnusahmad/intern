@@ -18,6 +18,7 @@ test("test_launchd_preflight_requires_full_disk_access_when_node_probe_is_denied
     config,
     platform: "darwin",
     homePath,
+    fileAccessProbe: ({ targets }) => ({ ok: true, probeKind: "launchd-file-read", targets }),
     accessProbe: ({ targets }) => ({ ok: false, targets, error: { code: "EPERM" } })
   });
 
@@ -36,6 +37,34 @@ test("test_launchd_preflight_requires_full_disk_access_when_node_probe_is_denied
   ]);
 });
 
+test("test_launchd_preflight_includes_file_read_diagnostic_when_node_probe_fails", () => {
+  let nodeProbeCalled = false;
+  const result = checkLaunchdPreflight({
+    repoPath: "/Users/example/Documents/Projects/ao1-intern",
+    kbPath: "/Users/example/Documents/Projects/ao1-kb",
+    config,
+    platform: "darwin",
+    homePath: "/Users/example",
+    fileAccessProbe: ({ targets }) => ({
+      ok: false,
+      probeKind: "launchd-file-read",
+      targets,
+      stderr: "cat: /Users/example/Documents/Projects/ao1-intern/src/cli.mjs: Operation not permitted"
+    }),
+    accessProbe: ({ targets }) => {
+      nodeProbeCalled = true;
+      return { ok: false, probeKind: "launchd-node-read", targets, error: { phase: "timeout" } };
+    }
+  });
+
+  assert.equal(result.status, "manual-action-required");
+  assert.equal(nodeProbeCalled, true);
+  assert.equal(result.accessProbe.probeKind, "launchd-node-read");
+  assert.equal(result.accessProbe.fileProbe.probeKind, "launchd-file-read");
+  assert.match(result.accessProbe.fileProbe.stderr, /Operation not permitted/);
+  assert.match(result.blockers.join("\n"), /launchd-spawned Node/);
+});
+
 test("test_launchd_preflight_uses_launchd_node_probe_for_protected_paths", () => {
   let probeInput = null;
   const result = checkLaunchdPreflight({
@@ -44,6 +73,7 @@ test("test_launchd_preflight_uses_launchd_node_probe_for_protected_paths", () =>
     config,
     platform: "darwin",
     homePath: "/Users/example",
+    fileAccessProbe: ({ targets }) => ({ ok: true, probeKind: "launchd-file-read", targets }),
     accessProbe: (input) => {
       probeInput = input;
       return { ok: true, probeKind: input.probeKind, targets: input.targets };
@@ -66,6 +96,7 @@ test("test_launchd_preflight_passes_for_documents_repos_when_node_probe_can_read
     config,
     platform: "darwin",
     homePath: "/Users/example",
+    fileAccessProbe: ({ targets }) => ({ ok: true, probeKind: "launchd-file-read", targets }),
     accessProbe: ({ nodeCommand, targets }) => ({ ok: true, nodeCommand, targets })
   });
 
