@@ -9,19 +9,16 @@
     "commit_policy": "per-run"
   },
   "chat": {
-    "primary_channel": "whatsapp",
-    "whatsapp": {
+    "primary_channel": "telegram",
+    "telegram": {
       "enabled": false,
       "host": "127.0.0.1",
       "port": 17671,
       "webhook_path": "/webhook",
-      "allowed_senders": ["whatsapp:+15550000000"],
-      "verify_token_ref": "keychain://ao1-intern/whatsapp-verify-token",
-      "app_secret_ref": "keychain://ao1-intern/whatsapp-app-secret",
-      "access_token_ref": "keychain://ao1-intern/whatsapp-access-token",
-      "phone_number_id": "000000000000000",
-      "graph_api_base_url": "https://graph.facebook.com",
-      "graph_api_version": "v23.0",
+      "allowed_senders": ["telegram:123456789"],
+      "bot_token_ref": "keychain://ao1-intern/telegram-bot-token",
+      "webhook_secret_ref": "keychain://ao1-intern/telegram-webhook-secret",
+      "bot_api_base_url": "https://api.telegram.org",
       "reply_to_unauthorized": false
     }
   },

@@ -32,8 +32,8 @@ test("test_runtime_env_resolves_secret_refs_without_persisting_values", () => {
 
 test("test_keychain_refs_map_to_generic_password_services", () => {
   assert.equal(
-    keychainServiceForRef("keychain://ao1-intern/whatsapp-access-token"),
-    "ao1-intern/whatsapp-access-token"
+    keychainServiceForRef("keychain://ao1-intern/telegram-bot-token"),
+    "ao1-intern/telegram-bot-token"
   );
-  assert.throws(() => keychainServiceForRef("env://WHATSAPP_TOKEN"), /Unsupported secret ref/);
+  assert.throws(() => keychainServiceForRef("env://TELEGRAM_BOT_TOKEN"), /Unsupported secret ref/);
 });

@@ -6,7 +6,7 @@ AO1 dogfood repo for the internal Intern agent. V1 observes AO1 KB syncs, reads 
 
 The operator surface should be chat-first. Magnus and Suley should not need to run npm commands during normal use; those commands are internal plumbing for tests, scheduled jobs, and setup.
 
-The primary planned control channel is WhatsApp. Once the WhatsApp webhook bridge is connected, use messages like:
+The primary control channel is Telegram. Once the Telegram bot webhook bridge is connected, use messages like:
 
 ```text
 review latest artifacts
@@ -18,53 +18,48 @@ help
 
 The chat router maps `review latest artifacts` / `review latest artefacts and update the kb` to the `ao1-kb-filing` skill and the same `fileLatestSync` path used by the scheduled observer. If `kb_write_enabled` is still false, the Intern stages KB-ready markdown in this repo only. If the KB write switch and explicit KB write-root permission are enabled, the same chat intent can write to the KB.
 
-WhatsApp senders must be explicitly allowlisted in config, and webhook verification secrets stay behind Keychain refs:
+Telegram users must be explicitly allowlisted in config, and the bot token plus webhook secret stay behind Keychain refs:
 
 ```json
 {
   "chat": {
-    "primary_channel": "whatsapp",
-    "whatsapp": {
+    "primary_channel": "telegram",
+    "telegram": {
       "enabled": false,
       "host": "127.0.0.1",
       "port": 17671,
       "webhook_path": "/webhook",
-      "allowed_senders": ["whatsapp:+15550000000"],
-      "verify_token_ref": "keychain://ao1-intern/whatsapp-verify-token",
-      "app_secret_ref": "keychain://ao1-intern/whatsapp-app-secret",
-      "access_token_ref": "keychain://ao1-intern/whatsapp-access-token",
-      "phone_number_id": "000000000000000",
-      "graph_api_base_url": "https://graph.facebook.com",
-      "graph_api_version": "v23.0",
+      "allowed_senders": ["telegram:123456789"],
+      "bot_token_ref": "keychain://ao1-intern/telegram-bot-token",
+      "webhook_secret_ref": "keychain://ao1-intern/telegram-webhook-secret",
+      "bot_api_base_url": "https://api.telegram.org",
       "reply_to_unauthorized": false
     }
   }
 }
 ```
 
-The repo now contains the dependency-free chat control plane, WhatsApp webhook adapter, local HTTP bridge, and outbound WhatsApp text sender. The bridge accepts WhatsApp Cloud API callbacks, verifies Meta signatures, dispatches approved messages into `handleInternChatMessage`, and sends replies back through the WhatsApp API.
+The repo now contains the dependency-free chat control plane, Telegram webhook adapter, local HTTP bridge, and outbound Telegram text sender. The bridge accepts Telegram Bot API webhook callbacks, verifies `X-Telegram-Bot-Api-Secret-Token`, dispatches approved messages into `handleInternChatMessage`, and sends replies back through `sendMessage`.
 
 Local connection setup:
 
 1. Create an uncommitted local config from `config/ao1-intern.example.json`.
-2. Set `chat.whatsapp.enabled` to `true`.
-3. Replace `allowed_senders` with Magnus and Suley's normalized WhatsApp sender ids, such as `whatsapp:+15551234567`.
-4. Replace `phone_number_id` with the WhatsApp Business phone number id.
-5. Store runtime secrets in Keychain. The `keychain://ao1-intern/name` ref maps to the generic-password service `ao1-intern/name`.
+2. Set `chat.telegram.enabled` to `true`.
+3. Replace `allowed_senders` with Magnus and Suley's normalized Telegram user ids, such as `telegram:123456789`.
+4. Store runtime secrets in Keychain. The `keychain://ao1-intern/name` ref maps to the generic-password service `ao1-intern/name`.
 
 ```bash
-security add-generic-password -a ao1-intern -s ao1-intern/whatsapp-verify-token -w '<verify-token>' -U
-security add-generic-password -a ao1-intern -s ao1-intern/whatsapp-app-secret -w '<app-secret>' -U
-security add-generic-password -a ao1-intern -s ao1-intern/whatsapp-access-token -w '<access-token>' -U
+security add-generic-password -a ao1-intern -s ao1-intern/telegram-bot-token -w '<bot-token-from-botfather>' -U
+security add-generic-password -a ao1-intern -s ao1-intern/telegram-webhook-secret -w '<random-secret-token>' -U
 ```
 
 The bridge is internal plumbing and should be run by a reviewed host process or LaunchAgent, not by day-to-day users:
 
 ```bash
-npm run intern -- whatsapp-bridge --config /path/to/local-ao1-intern.json
+npm run intern -- telegram-bridge --config /path/to/local-ao1-intern.json
 ```
 
-Register the public HTTPS URL that forwards to `http://127.0.0.1:17671/webhook` in the WhatsApp Business webhook settings using the same verify token stored in Keychain. Subscribe the webhook to inbound message events. Do not commit the local config, access token, app secret, verify token, or public tunnel credentials.
+Use BotFather to create the bot and get the bot token. Then set the Telegram webhook to the public HTTPS URL that forwards to `http://127.0.0.1:17671/webhook`, using the same secret token stored in Keychain. Do not commit the local config, bot token, webhook secret, or public tunnel credentials.
 
 ## Commands
 
@@ -81,6 +76,7 @@ npm run intern -- review-artifacts --config config/ao1-intern.example.json
 npm run intern -- runtime-probe --config config/ao1-intern.example.json
 npm run intern -- scheduled-runtime-smoke --config config/ao1-intern.example.json
 npm run intern -- launchd-preflight --kb /Users/magnus/Documents/Projects/ao1-kb --config config/ao1-intern.example.json
+npm run intern -- telegram-bridge --config config/ao1-intern.local.json
 ```
 
 The schedule command only writes reviewable cron/LaunchAgent artifacts and install instructions. It does not install anything. With the default config, the generated scheduled command wraps a direct `node src/cli.mjs` observer in the reviewed macOS `host-broker.sb` sandbox profile copied to `runtime.macos_sandbox.launch_agent_profile_path`, so launchd can apply it without an npm wrapper.

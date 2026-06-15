@@ -1,19 +1,19 @@
 import http from "node:http";
 import { handleInternChatMessage } from "./chat-control.mjs";
 import { KeychainSecretProvider } from "./secrets.mjs";
-import { handleWhatsAppWebhook } from "./whatsapp-webhook.mjs";
-import { sendWhatsAppText } from "./whatsapp-sender.mjs";
+import { handleTelegramWebhook } from "./telegram-webhook.mjs";
+import { sendTelegramText } from "./telegram-sender.mjs";
 
-export function createWhatsAppBridgeServer({
+export function createTelegramBridgeServer({
   config = {},
   repoPath = process.cwd(),
   kbPath = config.kb_path,
   secretProvider = new KeychainSecretProvider(),
   chatHandler,
-  sendTextFn = sendWhatsAppText
+  sendTextFn = sendTelegramText
 } = {}) {
-  const whatsapp = config.chat?.whatsapp || {};
-  const webhookPath = whatsapp.webhook_path || "/webhook";
+  const telegram = config.chat?.telegram || {};
+  const webhookPath = telegram.webhook_path || "/webhook";
 
   return http.createServer(async (request, response) => {
     try {
@@ -26,22 +26,20 @@ export function createWhatsAppBridgeServer({
       }
 
       const rawBody = request.method === "POST" ? await readRawBody(request) : "";
-      const result = await handleWhatsAppWebhook({
+      const result = await handleTelegramWebhook({
         method: request.method,
-        query: Object.fromEntries(requestUrl.searchParams.entries()),
         headers: request.headers,
         rawBody,
-        verifyToken: resolveOptional(secretProvider, whatsapp.verify_token_ref),
-        appSecret: resolveOptional(secretProvider, whatsapp.app_secret_ref),
+        secretToken: resolveOptional(secretProvider, telegram.webhook_secret_ref),
         dispatchMessage: async (message) => {
           const chatResult = chatHandler
             ? await chatHandler(message)
             : await handleInternChatMessage({ message, config, kbPath, repoPath });
-          if (chatResult?.reply && shouldReply({ chatResult, whatsapp })) {
+          if (chatResult?.reply && shouldReply({ chatResult, telegram })) {
             await sendTextFn({
-              to: message.sender,
+              chatId: message.chatId,
               text: chatResult.reply,
-              config: whatsapp,
+              config: telegram,
               secretProvider
             });
           }
@@ -56,30 +54,30 @@ export function createWhatsAppBridgeServer({
   });
 }
 
-export function startWhatsAppBridge({
+export function startTelegramBridge({
   config = {},
   repoPath = process.cwd(),
   kbPath = config.kb_path,
   secretProvider = new KeychainSecretProvider()
 } = {}) {
-  const whatsapp = config.chat?.whatsapp || {};
-  const host = whatsapp.host || "127.0.0.1";
-  const port = Number(whatsapp.port || 17671);
-  const server = createWhatsAppBridgeServer({ config, repoPath, kbPath, secretProvider });
+  const telegram = config.chat?.telegram || {};
+  const host = telegram.host || "127.0.0.1";
+  const port = Number(telegram.port || 17671);
+  const server = createTelegramBridgeServer({ config, repoPath, kbPath, secretProvider });
   return new Promise((resolve) => {
     server.listen(port, host, () => {
       resolve({
         server,
         host,
         port,
-        url: `http://${host}:${port}${whatsapp.webhook_path || "/webhook"}`
+        url: `http://${host}:${port}${telegram.webhook_path || "/webhook"}`
       });
     });
   });
 }
 
-function shouldReply({ chatResult, whatsapp }) {
-  if (chatResult.status === "denied" && whatsapp.reply_to_unauthorized === false) return false;
+function shouldReply({ chatResult, telegram }) {
+  if (chatResult.status === "denied" && telegram.reply_to_unauthorized === false) return false;
   return true;
 }
 
