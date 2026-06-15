@@ -10,6 +10,7 @@ import { runScheduledRuntimeSmoke, scheduledRuntimeEnv } from "./runtime-smoke.m
 import { reviewArtifacts } from "./artifact-review.mjs";
 import { checkLaunchdPreflight } from "./launchd-preflight.mjs";
 import { startTelegramBridge } from "./telegram-bridge.mjs";
+import { startTelegramPolling } from "./telegram-poller.mjs";
 
 const [command, ...rest] = process.argv.slice(2);
 const args = parseArgs(rest);
@@ -107,6 +108,17 @@ try {
       port: result.port,
       webhookUrl: result.url
     }, null, 2));
+  } else if (command === "telegram-poll") {
+    const config = loadConfig(args.config);
+    const repoPath = args.repo ? path.resolve(args.repo) : process.cwd();
+    const kbPath = args.kb || config.kb_path ? path.resolve(args.kb || config.kb_path) : null;
+    await startTelegramPolling({
+      config,
+      repoPath,
+      kbPath,
+      once: args.once === true,
+      onCycle: (result) => console.log(JSON.stringify(result))
+    });
   } else {
     usage();
     process.exit(command ? 1 : 0);
@@ -171,5 +183,6 @@ function usage() {
   npm run intern -- scheduled-runtime-smoke --config <path> [--kb /path/to/kb]
   npm run intern -- launchd-preflight --kb /path/to/kb [--config <path>] [--repo /path/to/intern]
   npm run intern -- review-artifacts [--config <path>] [--kb /path/to/kb]
-  npm run intern -- telegram-bridge --config <path> [--kb /path/to/kb] [--repo /path/to/intern]`);
+  npm run intern -- telegram-bridge --config <path> [--kb /path/to/kb] [--repo /path/to/intern]
+  npm run intern -- telegram-poll --config <path> [--kb /path/to/kb] [--repo /path/to/intern] [--once]`);
 }

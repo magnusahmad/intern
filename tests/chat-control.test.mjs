@@ -11,6 +11,7 @@ import {
   verifyTelegramSecretToken
 } from "../src/telegram-webhook.mjs";
 import { createTelegramBridgeServer } from "../src/telegram-bridge.mjs";
+import { runTelegramPollingCycle } from "../src/telegram-poller.mjs";
 import { sendTelegramText } from "../src/telegram-sender.mjs";
 
 const CHAT_CONFIG = {
@@ -237,6 +238,66 @@ test("test_telegram_bridge_verifies_secret_token_and_dispatches_chat_replies", a
     body: rawBody
   });
   assert.equal(posted.statusCode, 200);
+  assert.deepEqual(sent, [{
+    chatId: 123456789,
+    text: "AO1 Intern runtime is ready."
+  }]);
+});
+
+test("test_telegram_polling_cycle_fetches_updates_dispatches_and_replies", async () => {
+  const calls = [];
+  const sent = [];
+  const result = await runTelegramPollingCycle({
+    config: {
+      bot_api_base_url: "https://api.telegram.test",
+      bot_token_ref: "keychain://ao1-intern/telegram-bot-token",
+      poll_timeout_seconds: 0
+    },
+    secretProvider: {
+      resolve: (ref) => {
+        assert.equal(ref, "keychain://ao1-intern/telegram-bot-token");
+        return "123456:TEST_TOKEN";
+      }
+    },
+    offset: 10,
+    fetchFn: async (url, options) => {
+      calls.push({ url, options });
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          ok: true,
+          result: [{
+            update_id: 12,
+            message: {
+              message_id: 42,
+              from: { id: 123456789 },
+              chat: { id: 123456789 },
+              date: 1781517600,
+              text: "status"
+            }
+          }]
+        })
+      };
+    },
+    dispatchMessage: async (message) => {
+      assert.equal(message.sender, "telegram:123456789");
+      return { status: "ok", reply: "AO1 Intern runtime is ready." };
+    },
+    sendTextFn: async ({ chatId, text }) => {
+      sent.push({ chatId, text });
+      return { status: "sent", messageId: 77 };
+    }
+  });
+
+  assert.equal(result.nextOffset, 13);
+  assert.equal(result.messages, 1);
+  assert.equal(calls[0].url, "https://api.telegram.test/bot123456:TEST_TOKEN/getUpdates");
+  assert.deepEqual(JSON.parse(calls[0].options.body), {
+    offset: 10,
+    timeout: 0,
+    allowed_updates: ["message", "edited_message"]
+  });
   assert.deepEqual(sent, [{
     chatId: 123456789,
     text: "AO1 Intern runtime is ready."

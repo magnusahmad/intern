@@ -39,7 +39,7 @@ Telegram users must be explicitly allowlisted in config, and the bot token plus 
 }
 ```
 
-The repo now contains the dependency-free chat control plane, Telegram webhook adapter, local HTTP bridge, and outbound Telegram text sender. The bridge accepts Telegram Bot API webhook callbacks, verifies `X-Telegram-Bot-Api-Secret-Token`, dispatches approved messages into `handleInternChatMessage`, and sends replies back through `sendMessage`.
+The repo now contains the dependency-free chat control plane, Telegram webhook adapter, local HTTP bridge, local long-polling runner, and outbound Telegram text sender. For dogfooding, `telegram-poll` is the simplest path because it does not need a public HTTPS webhook URL. The webhook bridge remains available for a hosted setup later.
 
 Local connection setup:
 
@@ -53,13 +53,13 @@ security add-generic-password -a ao1-intern -s ao1-intern/telegram-bot-token -w 
 security add-generic-password -a ao1-intern -s ao1-intern/telegram-webhook-secret -w '<random-secret-token>' -U
 ```
 
-The bridge is internal plumbing and should be run by a reviewed host process or LaunchAgent, not by day-to-day users:
+For local dogfooding, run the poller as internal plumbing:
 
 ```bash
-npm run intern -- telegram-bridge --config /path/to/local-ao1-intern.json
+npm run intern -- telegram-poll --config /path/to/local-ao1-intern.json
 ```
 
-Use BotFather to create the bot and get the bot token. Then set the Telegram webhook to the public HTTPS URL that forwards to `http://127.0.0.1:17671/webhook`, using the same secret token stored in Keychain. Do not commit the local config, bot token, webhook secret, or public tunnel credentials.
+Use BotFather to create the bot and get the bot token. If you later choose a hosted webhook instead of local polling, set the Telegram webhook to the public HTTPS URL that forwards to `http://127.0.0.1:17671/webhook`, using the same secret token stored in Keychain. Do not commit the local config, bot token, webhook secret, or public tunnel credentials.
 
 ## Commands
 
@@ -77,6 +77,7 @@ npm run intern -- runtime-probe --config config/ao1-intern.example.json
 npm run intern -- scheduled-runtime-smoke --config config/ao1-intern.example.json
 npm run intern -- launchd-preflight --kb /Users/magnus/Documents/Projects/ao1-kb --config config/ao1-intern.example.json
 npm run intern -- telegram-bridge --config config/ao1-intern.local.json
+npm run intern -- telegram-poll --config config/ao1-intern.local.json
 ```
 
 The schedule command only writes reviewable cron/LaunchAgent artifacts and install instructions. It does not install anything. With the default config, the generated scheduled command wraps a direct `node src/cli.mjs` observer in the reviewed macOS `host-broker.sb` sandbox profile copied to `runtime.macos_sandbox.launch_agent_profile_path`, so launchd can apply it without an npm wrapper.
