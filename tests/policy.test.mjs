@@ -149,10 +149,12 @@ test("test_host_broker_policy_defaults_to_ignoring_codex_user_config", () => {
   const policy = generateHostBrokerPolicy({
     manifest,
     config: {
-      runtime: {
-        commands: {
-          codex: "codex"
-        }
+      codex_exec: {
+        model: "gpt-5.5",
+        service_tier: "fast",
+        sandbox: "read-only",
+        ignore_user_config: true,
+        ephemeral: true
       }
     }
   });

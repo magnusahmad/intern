@@ -1,102 +1,56 @@
 # AO1 Intern
 
-AO1 dogfood repo for the internal Intern agent. V1 observes AO1 KB syncs, reads latest raw connector manifests, filters important information, and writes KB-ready markdown into this repo for review and later KB write-back.
-
-## Intended User Experience
-
-The operator surface should be chat-first. Magnus and Suley should not need to run npm commands during normal use; those commands are internal plumbing for tests, scheduled jobs, and setup.
-
-The primary control channel is Telegram. The chat front door is planned by Hermes: operators can ask naturally, while the dispatcher fires approved skill intents. For current dogfooding, one approved intent is intentionally unrestricted shell access for allowlisted operators. Useful examples:
-
-```text
-can you look over the new WhatsApp stuff and file anything useful?
-review latest artifacts
-review latest artefacts and update the kb
-what did you write?
-where did you put it?
-review generated policy artifacts
-status
-help
-run: git status --short
-run: npm test
-ask Codex: summarize the current repo state
-```
-
-The chat planner maps natural-language requests onto predefined intents. `review-latest-sync` calls the `ao1-kb-filing` skill and the same `fileLatestSync` path used by the scheduled observer. `summarize-last-filing` reads the checkpoint plus generated markdown outputs and explains what was written without rerunning filing. `run-shell-command` runs `/bin/zsh -lc <command>` from the configured working directory and returns truncated stdout/stderr. Natural prompts such as `ask Codex: <prompt>` are mapped to `codex exec --cd /Users/magnus/Documents/Projects/ao1-intern '<prompt>'` unless the user provides a more specific command. If `kb_write_enabled` is still false, the Intern stages KB-ready markdown in this repo only. If the KB write switch and explicit KB write-root permission are enabled, the same filing intent can write to the KB.
-
-Shell access is deliberately dangerous in this dogfood configuration. Keep it behind Telegram sender allowlisting and the local uncommitted config; the committed example keeps `chat.shell.enabled` false so a fresh clone does not expose arbitrary machine access by default.
-
-Telegram users must be explicitly allowlisted in config, and the bot token plus webhook secret stay behind Keychain refs:
-
-```json
-{
-  "chat": {
-    "primary_channel": "telegram",
-    "intent_planner": {
-      "mode": "hermes"
-    },
-    "shell": {
-      "enabled": false,
-      "working_directory": "/Users/magnus/Documents/Projects/ao1-intern",
-      "timeout_ms": 120000,
-      "max_output_chars": 6000,
-      "max_reply_chars": 3500
-    },
-    "telegram": {
-      "enabled": false,
-      "host": "127.0.0.1",
-      "port": 17671,
-      "webhook_path": "/webhook",
-      "allowed_senders": ["telegram:123456789"],
-      "bot_token_ref": "keychain://ao1-intern/telegram-bot-token",
-      "webhook_secret_ref": "keychain://ao1-intern/telegram-webhook-secret",
-      "bot_api_base_url": "https://api.telegram.org",
-      "reply_to_unauthorized": false
-    }
-  }
-}
-```
-
-The repo now contains the dependency-free chat control plane, Telegram webhook adapter, local HTTP bridge, local long-polling runner, and outbound Telegram text sender. For dogfooding, `telegram-poll` is the simplest path because it does not need a public HTTPS webhook URL. The webhook bridge remains available for a hosted setup later.
-
-Local connection setup:
-
-1. Create an uncommitted local config from `config/ao1-intern.example.json`.
-2. Set `chat.telegram.enabled` to `true`.
-3. Replace `allowed_senders` with Magnus and Suley's normalized Telegram user ids, such as `telegram:123456789`.
-4. Store runtime secrets in Keychain. The `keychain://ao1-intern/name` ref maps to the generic-password service `ao1-intern/name`.
+A general-purpose research and operations Hermes agent backed by a durable knowledge base. Installed as a **Hermes profile distribution** — one command gives you the whole agent:
 
 ```bash
-security add-generic-password -a ao1-intern -s ao1-intern/telegram-bot-token -w '<bot-token-from-botfather>' -U
-security add-generic-password -a ao1-intern -s ao1-intern/telegram-webhook-secret -w '<random-secret-token>' -U
+hermes profile install https://github.com/NousResearch/ao1-intern
 ```
 
-For local dogfooding, run the poller as internal plumbing:
+Then copy `.env.example` to `.env` and fill in your keys. Run `hermes` or address the agent via Telegram/Discord.
+
+---
+
+## What You Get
+
+| Component | Description |
+|-----------|-------------|
+| **SOUL.md** | Agent personality and operating principles |
+| **config.yaml** | Base model, toolsets, delegation, and gateway config |
+| **skills/ao1-intern** | Hermes-facing routing rules for repo work and KB context |
+| **skills/ao1-kb-filing** | KB sync → curated markdown filing workflow |
+| **src/kb-*.mjs** | KB interaction helpers (rules, sync, classification, filing) |
+
+## Core Capabilities
+
+**KB-aware routing** — The agent reads the AO1 KB (`$AO1_KB_PATH`) for company context, concept maps, and research records before routing work.
+
+**Swappable backend agents** — Heavy repo, shell, or implementation work defaults to Codex; bounded analysis defaults to Claude print mode. Explicit user choice always wins.
+
+**Systematic research filing** — Connector sync items are classified against KB rules, grouped by concept, and written as KB-ready markdown. Manual and scheduled paths use identical code.
+
+**Multi-repo coordination** — Backend agents are launched in the target repo so its `AGENTS.md` provides operational rules naturally.
+
+## KB Filing Commands (Node.js CLI)
 
 ```bash
-npm run intern -- telegram-poll --config /path/to/local-ao1-intern.json
-```
-
-Use BotFather to create the bot and get the bot token. If you later choose a hosted webhook instead of local polling, set the Telegram webhook to the public HTTPS URL that forwards to `http://127.0.0.1:17671/webhook`, using the same secret token stored in Keychain. Do not commit the local config, bot token, webhook secret, or public tunnel credentials.
-
-## Commands
-
-```bash
+npm install
 npm test
-npm run intern -- file-latest-sync --kb /Users/magnus/Documents/Projects/ao1-kb
-npm run intern -- file-latest-sync --kb /Users/magnus/Documents/Projects/ao1-kb --config config/ao1-intern.example.json
-npm run intern -- file-latest-sync --kb /Users/magnus/Documents/Projects/ao1-kb --config config/ao1-intern.example.json --permissions config/permissions.example.json
-npm run intern -- file-latest-sync --kb /Users/magnus/Documents/Projects/ao1-kb --commit-policy manual
-npm run intern -- file-latest-sync --kb /Users/magnus/Documents/Projects/ao1-kb --classifier codex --config config/ao1-intern.example.json
-npm run intern -- schedule-artifacts --kb /Users/magnus/Documents/Projects/ao1-kb --config config/ao1-intern.example.json
-npm run intern -- policy-artifacts --permissions config/permissions.example.json --config config/ao1-intern.example.json
-npm run intern -- review-artifacts --config config/ao1-intern.example.json
-npm run intern -- runtime-probe --config config/ao1-intern.example.json
-npm run intern -- scheduled-runtime-smoke --config config/ao1-intern.example.json
-npm run intern -- launchd-preflight --kb /Users/magnus/Documents/Projects/ao1-kb --config config/ao1-intern.example.json
-npm run intern -- telegram-bridge --config config/ao1-intern.local.json
-npm run intern -- telegram-poll --config config/ao1-intern.local.json
+
+# File latest KB sync to this repo (review staged markdown)
+npm run intern -- file-latest-sync --kb $AO1_KB_PATH
+
+# File with explicit permissions manifest
+npm run intern -- file-latest-sync --kb $AO1_KB_PATH \
+  --permissions config/permissions.example.json
+
+# File without committing (review before committing)
+npm run intern -- file-latest-sync --kb $AO1_KB_PATH --commit-policy manual
+
+# Plan a delegation without executing it
+npm run intern -- plan-delegation --message "Use Codex to inspect ao1-intern"
 ```
+
+Direct KB write-back is disabled by default. Filed markdown stages in `runs/` until reviewed. When `kb_write_enabled` is set in the permissions manifest, new KB concept files are created and existing files are appended to rather than overwritten.
 
 The schedule command only writes reviewable cron/LaunchAgent artifacts and install instructions. It does not install anything. With the default config, the generated scheduled command wraps a direct `node src/cli.mjs` observer in the reviewed macOS `host-broker.sb` sandbox profile copied to `runtime.macos_sandbox.launch_agent_profile_path`, so launchd can apply it without an npm wrapper.
 
@@ -119,7 +73,7 @@ Run `review-artifacts` after generating schedule and policy artifacts. It checks
 Manual OS-level smoke after generating policy artifacts:
 
 ```bash
-sandbox-exec -f .ao1-intern/policies/host-broker.sb /opt/homebrew/bin/npm run intern -- scheduled-runtime-smoke --config config/ao1-intern.example.json
+sandbox-exec -f .ao1-intern/policies/host-broker.sb /opt/homebrew/bin/node src/cli.mjs scheduled-runtime-smoke
 ```
 
 Manual OpenShell gateway LaunchAgent install after review:
@@ -134,9 +88,11 @@ Manual OpenShell gateway LaunchAgent removal:
 launchctl bootout gui/$(id -u) .ao1-intern/policies/com.ao1.intern.openshell-gateway.plist
 ```
 
-## Local Runtime
+## OpenShell & Sandbox (Future Distribution Content)
 
-Hermes is expected at `/Users/magnus/.local/bin/hermes`. OpenShell is expected at `/Users/magnus/.local/bin/openshell`; V1 treats NemoClaw as available through OpenShell unless a standalone `nemoclaw` command appears later.
+The OpenShell gateway, macOS LaunchAgent schedules, and `sandbox-exec` policy artifacts are **not yet part of the distribution** but will be added in a future iteration. They remain here as reference implementations.
+
+> **Note:** The sandbox/policy artifacts (`host-broker.mjs`, `policy.mjs`, `secrets.mjs`, `shell-skill.mjs`, `launchd-preflight.mjs`, `permissions.example.json`, `openshell-gateway.example.toml`) and their tests are kept in this repo intentionally. They will be folded into the distribution once the OpenShell gateway install path is stable.
 
 The runtime probe requires Hermes, Codex, and a runnable containment layer. When OpenShell is the containment layer, it also runs `openshell status` so a disconnected gateway is reported before a scheduled filing run starts.
 
@@ -163,5 +119,5 @@ Then verify:
 
 ```bash
 /Users/magnus/.local/bin/openshell status
-npm run intern -- runtime-probe --config config/ao1-intern.example.json
+npm run intern -- runtime-probe
 ```

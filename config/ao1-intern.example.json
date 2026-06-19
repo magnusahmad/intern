@@ -1,36 +1,21 @@
 {
   "agent_id": "ao1-intern",
-  "kb_path": "/Users/magnus/Documents/Projects/ao1-kb",
+  "kb_path": "~/Documents/Projects/ao1-kb",
   "state_dir": ".ao1-intern",
   "runs_dir": "runs",
   "permissions_path": "config/permissions.example.json",
-  "classifier": "hermes-codex",
+  "classifier": "heuristic",
   "filing": {
     "commit_policy": "per-run"
   },
-  "chat": {
-    "primary_channel": "telegram",
-    "intent_planner": {
-      "mode": "hermes"
+  "hermes_gateway": {
+    "default_backend": "codex",
+    "default_modes": {
+      "codex": "background-pty",
+      "claude": "print"
     },
-    "shell": {
-      "enabled": false,
-      "working_directory": "/Users/magnus/Documents/Projects/ao1-intern",
-      "timeout_ms": 120000,
-      "max_output_chars": 6000,
-      "max_reply_chars": 3500
-    },
-    "telegram": {
-      "enabled": false,
-      "host": "127.0.0.1",
-      "port": 17671,
-      "webhook_path": "/webhook",
-      "allowed_senders": ["telegram:123456789"],
-      "bot_token_ref": "keychain://ao1-intern/telegram-bot-token",
-      "webhook_secret_ref": "keychain://ao1-intern/telegram-webhook-secret",
-      "bot_api_base_url": "https://api.telegram.org",
-      "reply_to_unauthorized": false
-    }
+    "audit_dir": ".ao1-intern/delegations",
+    "target_repos": []
   },
   "model_provider": {
     "credential_ref": "keychain://ao1-intern/model-provider"
@@ -49,10 +34,9 @@
   "runtime": {
     "execution_boundary": "host-broker",
     "commands": {
-      "hermes": "/Users/magnus/.local/bin/hermes",
+      "hermes": "hermes",
       "codex": "codex",
-      "nemoclaw": "nemoclaw",
-      "openshell": "/Users/magnus/.local/bin/openshell"
+      "openshell": "openshell"
     },
     "openshell_gateway": {
       "launch_agent_label": "com.ao1.intern.openshell-gateway",
@@ -66,8 +50,8 @@
       "port": 17670,
       "run_at_load": true,
       "keep_alive": true,
-      "stdout_path": "/Users/magnus/Documents/Projects/ao1-intern/.ao1-intern/logs/openshell-gateway.out.log",
-      "stderr_path": "/Users/magnus/Documents/Projects/ao1-intern/.ao1-intern/logs/openshell-gateway.err.log"
+      "stdout_path": ".ao1-intern/logs/openshell-gateway.out.log",
+      "stderr_path": ".ao1-intern/logs/openshell-gateway.err.log"
     },
     "macos_sandbox": {
       "node_command": "/opt/homebrew/bin/node",
@@ -82,7 +66,6 @@
         "/opt/homebrew/opt",
         "/opt/homebrew/Cellar",
         "/opt/homebrew/lib/node_modules/npm",
-        "/opt/homebrew/Caskroom/codex",
         "/Users/magnus/.local/bin",
         "/Users/magnus/.hermes/hermes-agent",
         "/Users/magnus/.local/share/uv/python"
@@ -106,6 +89,7 @@
         "/private/var/folders/2r/mpm3k8f971132z3x_k6_z5km0000gn/T"
       ],
       "unix_socket_roots": [
+        "/private/tmp",
         "/private/var/folders/2r/mpm3k8f971132z3x_k6_z5km0000gn/T",
         "/private/var/folders/2r/mpm3k8f971132z3x_k6_z5km0000gn/T/codex-ipc"
       ]

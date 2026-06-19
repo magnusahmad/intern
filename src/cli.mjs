@@ -9,8 +9,7 @@ import { probeRuntime } from "./runtime-probe.mjs";
 import { runScheduledRuntimeSmoke, scheduledRuntimeEnv } from "./runtime-smoke.mjs";
 import { reviewArtifacts } from "./artifact-review.mjs";
 import { checkLaunchdPreflight } from "./launchd-preflight.mjs";
-import { startTelegramBridge } from "./telegram-bridge.mjs";
-import { startTelegramPolling } from "./telegram-poller.mjs";
+import { buildDelegationRoutePlan } from "./backend-templates.mjs";
 
 const [command, ...rest] = process.argv.slice(2);
 const args = parseArgs(rest);
@@ -97,28 +96,16 @@ try {
     });
     console.log(JSON.stringify(result, null, 2));
     if (result.status !== "passed") process.exit(1);
-  } else if (command === "telegram-bridge") {
+  } else if (command === "plan-delegation") {
     const config = loadConfig(args.config);
-    const repoPath = args.repo ? path.resolve(args.repo) : process.cwd();
-    const kbPath = args.kb || config.kb_path ? path.resolve(args.kb || config.kb_path) : null;
-    const result = await startTelegramBridge({ config, repoPath, kbPath });
-    console.log(JSON.stringify({
-      status: "listening",
-      host: result.host,
-      port: result.port,
-      webhookUrl: result.url
-    }, null, 2));
-  } else if (command === "telegram-poll") {
-    const config = loadConfig(args.config);
-    const repoPath = args.repo ? path.resolve(args.repo) : process.cwd();
-    const kbPath = args.kb || config.kb_path ? path.resolve(args.kb || config.kb_path) : null;
-    await startTelegramPolling({
-      config,
-      repoPath,
-      kbPath,
-      once: args.once === true,
-      onCycle: (result) => console.log(JSON.stringify(result))
+    const result = buildDelegationRoutePlan({
+      message: requiredText(args.message, "--message"),
+      explicitTarget: args.target || "",
+      explicitBackend: args.backend || "",
+      explicitMode: args.mode || "",
+      config
     });
+    console.log(JSON.stringify(result, null, 2));
   } else {
     usage();
     process.exit(command ? 1 : 0);
@@ -148,6 +135,11 @@ function parseArgs(tokens) {
 function required(value, name) {
   if (!value) throw new Error(`Missing ${name}`);
   return path.resolve(value);
+}
+
+function requiredText(value, name) {
+  if (!value) throw new Error(`Missing ${name}`);
+  return String(value);
 }
 
 function loadConfig(configPath) {
@@ -183,6 +175,5 @@ function usage() {
   npm run intern -- scheduled-runtime-smoke --config <path> [--kb /path/to/kb]
   npm run intern -- launchd-preflight --kb /path/to/kb [--config <path>] [--repo /path/to/intern]
   npm run intern -- review-artifacts [--config <path>] [--kb /path/to/kb]
-  npm run intern -- telegram-bridge --config <path> [--kb /path/to/kb] [--repo /path/to/intern]
-  npm run intern -- telegram-poll --config <path> [--kb /path/to/kb] [--repo /path/to/intern] [--once]`);
+  npm run intern -- plan-delegation --message <text> [--target <repo>] [--backend codex|claude] [--mode <mode>] [--config <path>]`);
 }

@@ -1,9 +1,7 @@
-import { runCodexExec } from "./codex-driver.mjs";
 import { runHermesOneshot } from "./hermes-driver.mjs";
 import { createHostBroker } from "./host-broker.mjs";
 import { generateHostBrokerPolicy } from "./policy.mjs";
 
-const CODEX_EXPECTED = "AO1_CODEX_SCHEDULE_SMOKE_OK";
 const HERMES_EXPECTED = "AO1_HERMES_SCHEDULE_SMOKE_OK";
 
 export function scheduledRuntimeEnv(env = process.env, config = {}) {
@@ -29,19 +27,6 @@ export function runScheduledRuntimeSmoke({
     execFile
   });
 
-  const codexOutput = runCodexExec({
-    repo: kbPath,
-    prompt: `Return exactly: ${CODEX_EXPECTED}`,
-    model: config.codex_exec?.model,
-    serviceTier: config.codex_exec?.service_tier,
-    sandbox: config.codex_exec?.sandbox,
-    ignoreUserConfig: config.codex_exec?.ignore_user_config,
-    ephemeral: config.codex_exec?.ephemeral,
-    env,
-    execFile: broker.codexExecFile
-  });
-  assertExpectedSmokeOutput(codexOutput, CODEX_EXPECTED, "Codex");
-
   const hermesOutput = runHermesOneshot({
     prompt: `Return exactly: ${HERMES_EXPECTED}`,
     command: config.hermes?.command,
@@ -53,7 +38,6 @@ export function runScheduledRuntimeSmoke({
   assertExpectedSmokeOutput(hermesOutput, HERMES_EXPECTED, "Hermes");
 
   return {
-    codex: { status: "ok", expected: CODEX_EXPECTED },
     hermes: { status: "ok", expected: HERMES_EXPECTED },
     env: {
       HOME: env.HOME,

@@ -47,36 +47,22 @@ test("test_runtime_classifier_defaults_to_heuristic_and_supports_codex", () => {
   assert.throws(() => selectRuntimeClassifier({ mode: "unknown" }), /Unknown classifier/);
 });
 
-test("test_runtime_classifier_wraps_hermes_codex_execs_with_host_broker_policy", () => {
-  const manifest = JSON.parse(fs.readFileSync("config/permissions.example.json", "utf8"));
-  const config = JSON.parse(fs.readFileSync("config/ao1-intern.example.json", "utf8"));
-  const hostBrokerPolicy = generateHostBrokerPolicy({ manifest, config });
-  const calls = [];
-  const classifier = selectRuntimeClassifier({
+test("test_runtime_classifier_returns_error_for_unavailable_classifiers", () => {
+  // Codex and hermes-codex classifiers are stubs that throw when invoked.
+  // The factory functions exist (selectRuntimeClassifier returns a function) but
+  // calling them fails with a clear error message.
+  const codex = selectRuntimeClassifier({
+    mode: "codex",
+    repoPath: "/Users/magnus/Documents/Projects/ao1-kb"
+  });
+  assert.equal(typeof codex, "function");
+  assert.throws(() => codex({ items: [], rules: {}, manifest: {}, sync: {}, curate: {} }), /Codex classifier is not available/);
+
+  const hermesCodex = selectRuntimeClassifier({
     mode: "hermes-codex",
     repoPath: "/Users/magnus/Documents/Projects/ao1-kb",
-    internRepoPath: "/Users/magnus/Documents/Projects/ao1-intern",
-    codexConfig: config.codex_exec,
-    hermesConfig: config.hermes,
-    hostBrokerPolicy,
-    execFile: (command, args, options) => {
-      calls.push({ command, args, options });
-      return JSON.stringify({
-        items: [{
-          source_item_id: "notes/nemoclaw.md",
-          conceptPath: "operations/runtime/hermes-nemoclaw.md",
-          summary: "Summary.",
-          classification: "operational todo",
-          keptReason: "Selected.",
-          rulesConsulted: ["AGENTS.md"]
-        }]
-      });
-    }
+    internRepoPath: "/Users/magnus/Documents/Projects/ao1-intern"
   });
-
-  const result = classifier(sampleClassifierContext());
-  assert.equal(result.length, 1);
-  assert.equal(calls.length, 2);
-  assert.equal(calls[0].command, "codex");
-  assert.equal(calls[1].command, "/Users/magnus/.local/bin/hermes");
+  assert.equal(typeof hermesCodex, "function");
+  assert.throws(() => hermesCodex({ items: [], rules: {}, manifest: {}, sync: {}, curate: {} }), /not available/);
 });
