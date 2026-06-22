@@ -4,7 +4,7 @@ This repo is the **AO1 Intern profile distribution** — a shareable Hermes agen
 packaged as a git repository. Consumers install it with:
 
 ```bash
-hermes profile install https://github.com/NousResearch/ao1-intern
+hermes profile install https://github.com/magnusahmad/ao1-intern
 ```
 
 The distribution root (`./`) is the Hermes profile root. These files are the

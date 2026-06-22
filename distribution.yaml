@@ -11,7 +11,7 @@ description: >
   filing, repo work via swappable worker backends (Codex, Claude), and
   multi-repository coordination. Ships with Telegram gateway support.
 
-homepage: https://github.com/NousResearch/ao1-intern
+homepage: https://github.com/magnusahmad/ao1-intern
 license: MIT
 
 # Env vars this distribution requires consumers to set.

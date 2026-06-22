@@ -3,7 +3,7 @@
 A general-purpose research and operations Hermes agent backed by a durable knowledge base. Installed as a **Hermes profile distribution** — one command gives you the whole agent:
 
 ```bash
-hermes profile install https://github.com/NousResearch/ao1-intern
+hermes profile install https://github.com/magnusahmad/ao1-intern
 ```
 
 Then copy `.env.example` to `.env` and fill in your keys. Run `hermes` or address the agent via Telegram/Discord.
