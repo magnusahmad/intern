@@ -150,7 +150,7 @@ memory:
   memory_char_limit: 2200
   user_char_limit: 1375
 
-# Delegate heavy work to Codex or Claude — not baked into Intern semantics.
+# Subagent delegation (generic Hermes feature). Tune or disable as needed.
 delegation:
   inherit_mcp_toolsets: true
   max_iterations: 50

@@ -10,17 +10,20 @@
 #   schedule: "0 9 * * *"
 #   prompt: |
 #     Your task description here.
-#   skills:
-#     - ao1-kb-filing
 #   delivery: origin
 
 # ─────────────────────────────────────────────────────────────────
-# Example: Daily KB sync check (disabled — uncomment and configure)
+# Planned: Capture → KB jobs (to be built)
 # ─────────────────────────────────────────────────────────────────
-# kb-sync-check.cron
-#   schedule: "0 10 * * *"
+# The intended use of cron here is to keep the company brain current:
+# scheduled jobs that pull new messages (chat, email, meeting notes) into
+# raw captures, then summarize them into curated KB entries under $AO1_KB_PATH.
+#
+# Example sketch (disabled — fill in once the capture/summarize workflow exists):
+# capture-to-kb.cron
+#   schedule: "0 18 * * *"
 #   prompt: |
-#     Run the KB sync check. Read the latest sync run from the KB at
-#     $AO1_KB_PATH and report whether there are new items ready to file.
-#     If items exist, list the run ID and item count.
+#     Pull today's new messages into raw captures, summarize the durable facts
+#     and decisions, and file them as concise KB entries under $AO1_KB_PATH.
+#     Skip anything already recorded.
 #   delivery: origin
