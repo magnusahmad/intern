@@ -3,20 +3,21 @@
 
 name: ao1-intern
 version: "1.0.0"
-hermes_version: ">=0.9.0"
+hermes_requires: ">=0.9.0"
 
 description: >
-  AO1 Intern — a general-purpose research and operations agent backed by a
-  durable knowledge base. Handles KB-aware analysis, concept routing, research
-  filing, repo work via swappable worker backends (Codex, Claude), and
-  multi-repository coordination. Ships with Telegram gateway support.
+  AO1 Intern — a helpful intern that lives on the human's machine and does real
+  work for them. Ships workflow skills for live meeting copilot, Stripe billing
+  and purchase verification, customer-email triage, and future KB syncing,
+  backed by the AO1 knowledge base as the company brain. Includes Telegram
+  gateway support.
 
 homepage: https://github.com/magnusahmad/ao1-intern
 license: MIT
 
-# Env vars this distribution requires consumers to set.
-# The installer copies .env.example -> .env and prompts for each key.
-env_vars:
+# Env vars this distribution requires or can use.
+# The installer reads env_requires; .env.example documents the same values.
+env_requires:
   - name: OPENROUTER_API_KEY
     description: API key for the default model provider (OpenRouter)
     required: true
@@ -27,6 +28,19 @@ env_vars:
     description: Path to the AO1 knowledge base on this machine
     required: false
     default: ~/Documents/Projects/ao1-kb
+  - name: STRIPE_SECRET_KEY
+    description: Stripe secret key for billing and purchase-verification workflows
+    required: false
+  - name: CUSTOMER_EMAIL_STATE_DIR
+    description: Optional local runtime directory for customer-email processing state
+    required: false
+  - name: CUSTOMER_EMAIL_ACCOUNT
+    description: Optional mailbox account name used by the configured mailbox CLI
+    required: false
+  - name: CUSTOMER_EMAIL_FOLDER
+    description: Optional inbound mailbox folder for customer-email processing
+    required: false
+    default: INBOX
   - name: HERMES_SECRET
     description: Shared secret for gateway authentication
     required: false
