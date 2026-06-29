@@ -16,14 +16,17 @@ These are the only hand-done steps. After this, the intern does the rest.
 ```bash
 hermes profile install https://github.com/magnusahmad/ao1-intern
 hermes profile use ao1-intern
-cp .env.example .env   # then run hermes
+hermes setup model     # pick your model/provider and enter its key (skip if already set)
 hermes
 ```
 
-On first run, Hermes prompts for your model provider key (use whatever model/provider you
-like — OpenRouter is the default). Then onboarding fires automatically: there's no magic
-phrase to type — a guard in `SOUL.md` detects that setup isn't finished and starts the
-`onboarding` skill.
+`hermes setup model` lets you choose whatever model/provider you like and stores the key in
+`~/.hermes/.env` — if you've used Hermes before, that key is already there and you can skip it.
+You do **not** need to create a `.env` by hand: the intern writes the per-profile secrets
+(Stripe, Telegram, etc.) into the profile's own `.env` for you during onboarding.
+
+On first `hermes`, onboarding fires automatically — there's no magic phrase to type. A guard in
+`SOUL.md` detects that setup isn't finished and starts the `onboarding` skill.
 
 ## What happens on first run
 
