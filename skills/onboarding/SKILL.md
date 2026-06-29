@@ -6,7 +6,8 @@ author: Hermes Agent
 license: MIT
 platforms: [macos]
 prerequisites:
-  env_vars: [AO1_KB_PATH]
+  # AO1_KB_PATH is intentionally NOT listed: when unset the skill resolves the KB to the
+  # current working directory and persists it (Phase 1), so Hermes must not prompt for it.
   commands: [stripe, wrangler, gh]
 metadata:
   hermes:
