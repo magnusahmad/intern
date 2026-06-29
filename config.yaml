@@ -2,11 +2,14 @@
 # Consumer profiles install this via `hermes profile install`.
 # Override any section by copying the key into your own profile config.yaml.
 
+# Model provider is the user's choice. Defaults to OpenRouter (Hermes prompts for the key on
+# first run); every value is env-overridable so a consumer can point at any provider/model.
+# Onboarding does careful tool use, so pick a capable model.
 model:
   default: ${AGENT_MODEL:-anthropic/claude-sonnet-4}
   provider: ${AGENT_PROVIDER:-openrouter}
   base_url: ${AGENT_BASE_URL:-https://openrouter.ai/api/v1}
-  api_mode: chat_completions
+  api_mode: ${AGENT_API_MODE:-chat_completions}
 
 # All toolsets enabled — restrict per-platform via `hermes tools` after install.
 toolsets:
@@ -37,8 +40,10 @@ terminal:
   auto_source_bashrc: true
   persistent_shell: true
 
+# Website ingestion uses Hermes's shipped web-extract / browser-navigate / computer-use —
+# no Firecrawl key dependency (spec 03 §4.5, §7.3). `auto` avoids requiring a Firecrawl key.
 web:
-  backend: firecrawl
+  backend: ${WEB_BACKEND:-auto}
 
 browser:
   inactivity_timeout: 120
@@ -188,6 +193,20 @@ approvals:
   timeout: 60
   cron_mode: deny
   mcp_reload_confirm: true
+  # Hard gates for a non-technical operator (spec 03 §4.6, §10). A non-coder will mostly
+  # say "yes", so these dangerous actions ALWAYS require explicit confirmation regardless of
+  # approval mode. The onboarding skill enforces the same posture deterministically.
+  always_confirm:
+    - "git push*"                 # never push unprompted; gh over HTTPS, no SSH
+    - "git -c * push*"
+    - "wrangler deploy*"          # no Cloudflare deploy during/around onboarding
+    - "wrangler pages deploy*"
+    - "wrangler pages publish*"
+    - "stripe * create*"          # live Stripe writes
+    - "stripe * update*"
+    - "stripe * delete*"
+    - 'curl * -X POST *api.stripe.com*'
+    - 'curl * -X DELETE *api.stripe.com*'
 
 # Telegram gateway — enable by setting TELEGRAM_BOT_TOKEN in .env
 telegram:

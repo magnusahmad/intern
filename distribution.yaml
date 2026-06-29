@@ -6,41 +6,45 @@ version: "1.0.0"
 hermes_requires: ">=0.9.0"
 
 description: >
-  AO1 Intern — a helpful intern that lives on the human's machine and does real
-  work for them. Ships workflow skills for live meeting copilot, Stripe billing
-  and purchase verification, customer-email triage, and future KB syncing,
-  backed by the AO1 knowledge base as the company brain. Includes Telegram
-  gateway support.
+  AO1 Intern — a first-run business-setup agent that lives on the human's machine
+  and does real work for them. On first run it onboards the whole company: probes
+  tooling, scans the website and repo, wires Stripe + Cloudflare + Telegram, and
+  bootstraps the AO1 knowledge base as the company brain. After onboarding it runs
+  the business from Telegram. Also ships skills for Stripe billing, a live meeting
+  copilot, and customer-email triage.
 
 homepage: https://github.com/magnusahmad/ao1-intern
 license: MIT
 
+# First-run entrypoint. SOUL.md's deterministic guard loads this skill whenever
+# $AO1_KB_PATH/.onboarding-state.json is missing or not yet `complete`.
+entrypoint:
+  skill: onboarding
+  spec: specs/03-onboarding-flow.md
+
 # Env vars this distribution requires or can use.
 # The installer reads env_requires; .env.example documents the same values.
+# The model provider is the user's choice; Hermes prompts for the key on first run.
 env_requires:
   - name: OPENROUTER_API_KEY
-    description: API key for the default model provider (OpenRouter)
+    description: API key for the default model provider (OpenRouter). Swap provider via AGENT_PROVIDER/AGENT_MODEL to use any other.
     required: true
-  - name: TELEGRAM_BOT_TOKEN
-    description: Telegram bot token for the gateway (get from @BotFather)
-    required: false
   - name: AO1_KB_PATH
-    description: Path to the AO1 knowledge base on this machine
+    description: Path to the AO1 knowledge base on this machine (the company brain)
     required: false
     default: ~/Documents/Projects/ao1-kb
   - name: STRIPE_SECRET_KEY
-    description: Stripe secret key for billing and purchase-verification workflows
+    description: Stripe secret key for billing and purchase-verification workflows (entered locally during onboarding)
     required: false
-  - name: CUSTOMER_EMAIL_STATE_DIR
-    description: Optional local runtime directory for customer-email processing state
+  - name: CLOUDFLARE_API_TOKEN
+    description: Optional Cloudflare API token for non-interactive wrangler auth (default is `wrangler login`)
     required: false
-  - name: CUSTOMER_EMAIL_ACCOUNT
-    description: Optional mailbox account name used by the configured mailbox CLI
+  - name: TELEGRAM_BOT_TOKEN
+    description: Telegram bot token for the gateway (get from @BotFather during onboarding)
     required: false
-  - name: CUSTOMER_EMAIL_FOLDER
-    description: Optional inbound mailbox folder for customer-email processing
+  - name: TELEGRAM_ALLOWED_USER_IDS
+    description: Comma-separated Telegram user IDs allowed to use the bot. Mandatorily set to the owner's ID during onboarding.
     required: false
-    default: INBOX
   - name: HERMES_SECRET
     description: Shared secret for gateway authentication
     required: false
