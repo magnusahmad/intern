@@ -57,8 +57,16 @@ from the KB instead.
 
 ## Phase 1 — First-run trigger & greeting
 
-1. Resolve `$AO1_KB_PATH` (default `~/Documents/Projects/ao1-kb`). If the directory doesn't
-   exist, create it now (the state file lives inside it).
+1. **Resolve the KB location with zero manual setup:**
+   - If `AO1_KB_PATH` is set and non-empty, use it.
+   - Otherwise default to the **current working directory** — the directory the user launched
+     `hermes` from (`pwd`). This is deliberate: the KB lives right next to the project the
+     owner is working in, so they never have to configure a path by hand.
+   - Create the directory + structure if absent (the state file lives inside it).
+   - **Persist the resolved absolute path** into the profile's `.env` as `AO1_KB_PATH` (append
+     it if missing; never echo other secrets while doing so). This makes every later run and
+     the SOUL.md first-run guard resolve to the same KB without any manual step, and keeps this
+     profile's KB from colliding with any other profile's.
 2. Read `$AO1_KB_PATH/.onboarding-state.json`. If absent, create it with `status:
    "in_progress"`, `started_at` = now, `machine: "macos"`, `model_provider` = whatever the
    user configured (default `openrouter`), and all steps `done: false` (use the schema below).

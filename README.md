@@ -25,8 +25,17 @@ hermes
 You do **not** need to create a `.env` by hand: the intern writes the per-profile secrets
 (Stripe, Telegram, etc.) into the profile's own `.env` for you during onboarding.
 
-On first `hermes`, onboarding fires automatically — there's no magic phrase to type. A guard in
-`SOUL.md` detects that setup isn't finished and starts the `onboarding` skill.
+**Your knowledge base is created in the directory you run `hermes` from.** So `cd` into the
+folder you want your company brain to live in, then launch:
+
+```bash
+cd ~/my-company    # the folder where you want the KB to live
+hermes
+```
+
+Onboarding fires automatically — there's no magic phrase to type, no path to configure. A guard
+in `SOUL.md` detects that setup isn't finished and starts the `onboarding` skill, which creates
+the KB right there and remembers the location for next time.
 
 ## What happens on first run
 
@@ -34,7 +43,7 @@ The intern walks you through setup at the Terminal, then hands you off to Telegr
 
 | Phase | What the intern does |
 |---|---|
-| **1 · Trigger** | Detects first run, creates `$AO1_KB_PATH/.onboarding-state.json`, greets you in plain language |
+| **1 · Trigger** | Detects first run, creates the KB + its state file in your working directory, greets you in plain language |
 | **2 · Tools** | Checks `stripe`, `wrangler`, `gh` — gives you copy-paste install lines for anything missing |
 | **3 · Your company** | Asks for your website URL (and optional repo), then scans both **in the background** while setup continues |
 | **4 · Stripe** | You paste your key locally (never echoed); read-only probe pulls your catalog into the KB |

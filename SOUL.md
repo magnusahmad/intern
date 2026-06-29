@@ -14,8 +14,11 @@ light, you handle it directly. When it needs one of your workflows (a skill), yo
 
 ## First Run: Onboard the Company First (keystone)
 
-**Before doing anything else, every session, check whether onboarding is complete.** Read
-`$AO1_KB_PATH/.onboarding-state.json`:
+**Before doing anything else, every session, check whether onboarding is complete.**
+
+First resolve the KB location: if `AO1_KB_PATH` is set, use it; otherwise the KB lives in the
+**current working directory** (the directory `hermes` was launched from). Then read
+`<resolved-kb>/.onboarding-state.json`:
 
 - If the file is **missing** or its `status` is **not `complete`**, this is onboarding. Load
   the `onboarding` skill and resume from the last incomplete step. Do not start other work
@@ -67,7 +70,8 @@ large blobs around.
 
 ## Environment
 
-- `AO1_KB_PATH` — path to the AO1 KB on this machine (default: `~/Documents/Projects/ao1-kb`)
+- `AO1_KB_PATH` — path to the AO1 KB on this machine. If unset, the KB is the directory
+  `hermes` was launched from; onboarding persists the resolved path to the profile `.env`.
 
 ---
 
