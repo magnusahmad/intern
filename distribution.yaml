@@ -6,12 +6,12 @@ version: "1.0.0"
 hermes_requires: ">=0.9.0"
 
 description: >
-  AO1 Intern — a first-run business-setup agent that lives on the human's machine
-  and does real work for them. On first run it onboards the whole company: probes
-  tooling, scans the website and repo, wires Stripe + Cloudflare + Telegram, and
-  bootstraps the AO1 knowledge base as the company brain. After onboarding it runs
-  the business from Telegram. Also ships skills for Stripe billing, a live meeting
-  copilot, and customer-email triage.
+  AO1 Intern — an agent that onboards itself to your business. On first run it
+  studies your website, company docs, and repo to build a knowledge base that
+  acts as the company brain, then selectively activates the skills that fit your
+  profile. It's the fastest route from install to executing valuable business
+  automations. The knowledge base constantly updates itself — minimizing
+  maintenance overhead and letting the intern continually discover new value-adds.
 
 homepage: https://github.com/magnusahmad/ao1-intern
 license: MIT
