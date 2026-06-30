@@ -186,7 +186,24 @@ Onboarding is **read-only on Stripe.** No creating/updating/deactivating objects
    + Stripe, but **merges back** (never destroys) user-confirmed corrections.
 6. Write curated pages: `company/profile.md`, `company/website.md`, `company/payments.md`,
    `products/catalog.md`, `operations/*.md`. Raw material stays under `raw/onboarding/`.
-7. **Show the user what you built — don't just print a status checklist.** Give a short,
+   **Link related pages with Obsidian-style `[[wikilinks]]`** (e.g. `profile.md` links to
+   `[[catalog]]`, `[[payments]]`, `[[hosting]]`; a decision links to what it touches). These
+   links are what make the KB a navigable graph — both in Obsidian and in the visual below —
+   so don't skip them. Use the page's filename without extension as the link target.
+7. **Generate the visual KB graph.** Run the bundled generator (it ships in this skill at
+   `scripts/build_kb_graph.py`) against the KB, then open the result so the user sees it:
+
+   ```bash
+   python3 <this-skill-dir>/scripts/build_kb_graph.py "$AO1_KB_PATH"
+   open "$AO1_KB_PATH/kb-graph.html"
+   ```
+
+   It writes `kb-graph.html` — a self-contained, Obsidian-style force-directed graph (nodes
+   colored by folder, drag/zoom/hover) that opens in any browser; no Obsidian needed. It's
+   deterministic and re-runnable, so regenerate it whenever the KB changes (later you can run
+   it on request, e.g. "show me my knowledge base"). The KB folder also opens directly as an
+   Obsidian vault for anyone who has Obsidian, since the pages use `[[wikilinks]]`.
+8. **Show the user what you built — don't just print a status checklist.** Give a short,
    friendly summary of the knowledge base, in plain language:
    - **Where it lives** — the KB path (e.g. `~/my-company`).
    - **Its layout** — walk the main folders and what each holds, briefly. For example:
@@ -199,13 +216,15 @@ Onboarding is **read-only on Stripe.** No creating/updating/deactivating objects
    - **2–4 headline facts** you learned about the company (model, top product + price, brand,
      legal entity) so they can sanity-check the synthesis at a glance.
    - **Anything in `open_questions`** that still needs their confirmation.
+   - **Point them at the graph** you just opened (`kb-graph.html`) as a visual map of how it all
+     connects, and mention they can open the folder in Obsidian too if they use it.
    - **That it grows over time.** Say plainly that this is a starting point and you'll keep
      adding to and refining `{company}`'s brain as you learn more — every task you run teaches
      it something, and you maintain it so it stays the source of truth. Use the company's
      actual name, not a placeholder.
 
    Keep it tight — a handful of lines, not a wall of text.
-8. Mark `kb.done: true`.
+9. Mark `kb.done: true`.
 
 See `references/business-profile.md` for the company-profile schema and the business-model
 classification signals.
@@ -289,6 +308,7 @@ A step that times out or is skipped appends a human-readable item to `todos` so 
 $AO1_KB_PATH/
   README.md
   .onboarding-state.json
+  kb-graph.html                 # Obsidian-style visual map (regenerated from [[wikilinks]])
   company/
     profile.md
     website.md

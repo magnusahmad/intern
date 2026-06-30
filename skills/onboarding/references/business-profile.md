@@ -49,6 +49,14 @@ Brand name ≠ Stripe account / legal entity is the other common one.
 - If a scan is missing/timed out, synthesize from whatever is available and leave a `todo`. A
   later run finishes the scan and re-synthesizes.
 
+## Cross-link the pages (for the graph)
+
+Curated pages should reference each other with Obsidian-style `[[wikilinks]]` (link target =
+filename without extension), e.g. `profile.md` links to `[[catalog]]`, `[[payments]]`,
+`[[hosting]]`. These links make the KB a navigable graph in Obsidian and feed the
+`kb-graph.html` visual the onboarding skill generates — a page with no links shows up as an
+isolated dot, so connect each page to what it relates to.
+
 ## `company-profile.json` schema
 
 Lives at `$AO1_KB_PATH/company/company-profile.json`.
