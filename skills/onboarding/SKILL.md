@@ -54,6 +54,27 @@ from the KB instead.
 6. **Don't silent-install.** Offer copy-paste `!brew install …` commands the user runs
    in-session; never install tooling yourself.
 
+## Secret entry (Phases 4, 5, 7) — you run the scripts, the value never reaches you
+
+Don't hand-write secret-entry scripts per run, and don't ask the user to paste a key into the
+chat. Two reviewed scripts ship in `scripts/`; **you** run them (with the user's approval) and
+the secret value flows straight into `.env` without ever entering your context. The security
+invariant: a secret is never a command argument, never in captured stdout, never echoed — you
+only ever see a `✓ … saved` line.
+
+- **Discovery first:** `scripts/discover-secret.sh NAME --env-file <profile .env> [--alias ALT] [--root DIR]`
+  copies an existing value from the current environment or a sibling project `.env` (search the
+  parent of the launch dir plus any `--root` you pass, e.g. the company repo path). It reports
+  only the *source*, never the value. Exit 0 = saved; exit 1 = not found.
+- **Manual entry fallback:** when discovery exits non-zero, `scripts/enter-secret.sh NAME
+  --env-file <profile .env> [--prompt "text"]` pops a native macOS dialog with **hidden input**.
+  The user types into the OS dialog (not the terminal, not the chat); the value goes straight to
+  `.env`. Exit non-zero = cancelled/empty, nothing written.
+
+Use `<profile .env>` = the same `.env` you persist `AO1_KB_PATH` into (Phase 1). The scripts set
+`.env` to `chmod 600` and refuse to run if the channel is Telegram (defense in depth behind
+golden rule 2 — you must still never invoke them off the local Terminal).
+
 ---
 
 ## Phase 1 — First-run trigger & greeting
@@ -128,9 +149,12 @@ if a child times out or the gateway restarts.
 
 ## Phase 4 — Stripe (read-only)
 
-1. **No-echo secret entry.** Ask the user to paste their `STRIPE_SECRET_KEY`. Recommend a
-   restricted/read-only key for setup. Write it straight into `.env` — do not print it back,
-   do not include it in any summary. (If on Telegram: refuse, per golden rule 2.)
+1. **Secret entry — run the scripts (see "Secret entry" above).** Get `STRIPE_SECRET_KEY` into
+   `.env` without the value ever reaching you:
+   - Try `scripts/discover-secret.sh STRIPE_SECRET_KEY --env-file <profile .env> --alias STRIPE_API_KEY --root <company_repo_path>`.
+   - If it exits non-zero, run `scripts/enter-secret.sh STRIPE_SECRET_KEY --env-file <profile .env> --prompt "Paste a restricted/read-only Stripe key"`.
+   Recommend a restricted/read-only key. Never paste the key into chat, never pass it as an
+   argument, never print it back. (If on Telegram: refuse, per golden rule 2.)
 2. **Read-only probes** using the `stripe` skill patterns (`-u "$STRIPE_SECRET_KEY:"`):
    products, prices, payment links, and recent checkout sessions.
 3. **Record live-vs-test mode** from `livemode` in the responses.
@@ -145,7 +169,10 @@ Onboarding is **read-only on Stripe.** No creating/updating/deactivating objects
 ## Phase 5 — Cloudflare (auth + record only)
 
 1. **Authenticate:** `wrangler login` (interactive browser, local) — or, if the user prefers
-   non-interactive, have them put `CLOUDFLARE_API_TOKEN` in `.env` (no echo) and use that.
+   non-interactive, get `CLOUDFLARE_API_TOKEN` into `.env` via the secret scripts (see "Secret
+   entry" above): try `scripts/discover-secret.sh CLOUDFLARE_API_TOKEN --env-file <profile .env>
+   --root <company_repo_path>`, falling back to `scripts/enter-secret.sh CLOUDFLARE_API_TOKEN
+   --env-file <profile .env>`. Never echo the token.
 2. **Detect the deploy target:** prefer a `wrangler.toml`/`wrangler.jsonc` found by the repo
    scan. Otherwise list Pages projects / Workers (`wrangler pages project list`,
    `wrangler deployments list`) and ask the user which one is their site.
@@ -232,7 +259,10 @@ classification signals.
 ## Phase 7 — Telegram activation (the handoff)
 
 1. **Create the bot:** walk the user through @BotFather (`/newbot`, pick a name + username).
-   Have them paste the **bot token locally** into `.env` as `TELEGRAM_BOT_TOKEN` — no echo.
+   Get the **bot token** into `.env` as `TELEGRAM_BOT_TOKEN` via `scripts/enter-secret.sh
+   TELEGRAM_BOT_TOKEN --env-file <profile .env> --prompt "Paste the bot token from @BotFather"`
+   (the hidden-input dialog — see "Secret entry" above). A fresh token won't be discoverable, so
+   this is the manual-entry path. No echo, never via Telegram.
 2. **Get the user's Telegram user ID** (e.g., message @userinfobot).
 3. **Mandatorily lock the bot** by setting `TELEGRAM_ALLOWED_USER_IDS` to that single ID in
    `.env`. An unlocked business-ops bot is a security hole — this is not optional.

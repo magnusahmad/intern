@@ -110,6 +110,14 @@ onboarding skill:
 - writes them straight into `.env` without printing them back,
 - refuses to accept or display secrets if the active channel is Telegram.
 
+Secret entry is handled by two reviewed scripts the agent runs (with the user's approval),
+**not** by ad-hoc scripts generated per run and **not** by asking the user to paste keys into
+the chat — `skills/onboarding/scripts/discover-secret.sh` (copies an existing key from the
+environment or a sibling project `.env`, reporting only the source) and `enter-secret.sh` (a
+native macOS hidden-input dialog the user types into). The value flows into `.env` out-of-band:
+it is never a command argument, never in captured stdout, never echoed — keeping it out of the
+agent's context entirely. Both scripts `chmod 600` the `.env` and self-refuse on Telegram.
+
 ### 4.4 Idempotent, resumable state
 A single source of truth tracks progress: `$AO1_KB_PATH/.onboarding-state.json` (schema in
 §6). Every phase:
