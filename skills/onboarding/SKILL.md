@@ -186,7 +186,26 @@ Onboarding is **read-only on Stripe.** No creating/updating/deactivating objects
    + Stripe, but **merges back** (never destroys) user-confirmed corrections.
 6. Write curated pages: `company/profile.md`, `company/website.md`, `company/payments.md`,
    `products/catalog.md`, `operations/*.md`. Raw material stays under `raw/onboarding/`.
-7. Mark `kb.done: true`.
+7. **Show the user what you built — don't just print a status checklist.** Give a short,
+   friendly summary of the knowledge base, in plain language:
+   - **Where it lives** — the KB path (e.g. `~/my-company`).
+   - **Its layout** — walk the main folders and what each holds, briefly. For example:
+     > Here's your company brain so far:
+     > - `company/` — who BlueBalls is: profile, brand, and your legal entity (Ahmad Company Limited, Hong Kong)
+     > - `products/` — your catalog and real prices ($49.99 Sauna Wear, sold via Stripe Payment Link)
+     > - `operations/` — how billing and hosting are wired (Stripe, Cloudflare)
+     > - `decisions/` — a log of choices we make together
+     > - `raw/` — the raw scan material I summarized this from
+   - **2–4 headline facts** you learned about the company (model, top product + price, brand,
+     legal entity) so they can sanity-check the synthesis at a glance.
+   - **Anything in `open_questions`** that still needs their confirmation.
+   - **That it grows over time.** Say plainly that this is a starting point and you'll keep
+     adding to and refining `{company}`'s brain as you learn more — every task you run teaches
+     it something, and you maintain it so it stays the source of truth. Use the company's
+     actual name, not a placeholder.
+
+   Keep it tight — a handful of lines, not a wall of text.
+8. Mark `kb.done: true`.
 
 See `references/business-profile.md` for the company-profile schema and the business-model
 classification signals.
