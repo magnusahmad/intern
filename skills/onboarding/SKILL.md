@@ -1,6 +1,6 @@
 ---
 name: onboarding
-description: First-run business setup for the ao1-intern profile. Drives a non-technical owner from a fresh install to "I run my business through Telegram" — probing tooling, wiring Stripe/Cloudflare/Telegram credentials locally, scanning the company website and repo in the background, and bootstrapping the KB as the company brain. Resumable and idempotent via a single state file.
+description: First-run business setup for the ao1-intern profile. Drives a non-technical owner from a fresh install to "I run my business through Telegram" — probing tooling, fingerprinting the company website + repo to detect which services it actually uses, then wiring only those credentials locally (Stripe, Cloudflare, … via an extensible connector registry) plus Telegram, and bootstrapping the KB as the company brain. Resumable and idempotent via a single state file.
 version: 1.0.0
 author: Hermes Agent
 license: MIT
@@ -8,7 +8,10 @@ platforms: [macos]
 prerequisites:
   # AO1_KB_PATH is intentionally NOT listed: when unset the skill resolves the KB to the
   # current working directory and persists it (Phase 1), so Hermes must not prompt for it.
-  commands: [stripe, wrangler, gh]
+  # Only `gh` is a hard prerequisite. `stripe`/`wrangler` are checked on demand in Phase 4,
+  # and only when their connector is actually detected + confirmed — a business that uses
+  # neither should not be nagged to install them.
+  commands: [gh]
 metadata:
   hermes:
     tags: [onboarding, setup, first-run, kb, stripe, cloudflare, telegram]
@@ -102,15 +105,17 @@ incomplete step instead of re-greeting from scratch.
 
 ## Phase 2 — Environment probe
 
-Homebrew is assumed present. Verify the three CLIs v1 needs. Run the checks, then print a
-present/missing table. Do **not** silent-install — for anything missing, give the user a
-copy-paste line and ask them to run it (prefix `!` so output lands in-session).
+Homebrew is assumed present. Only **`gh` is required** here. The `stripe` and `wrangler` CLIs
+are **connector-specific** — they're only needed if Phase 4 detects + confirms those services,
+so don't gate setup on them now. Run the checks, print a present/missing table, and do **not**
+silent-install — for anything missing, give the user a copy-paste line (prefix `!` so output
+lands in-session).
 
 | Tool | Check | Needed for | Install if missing |
 |---|---|---|---|
-| `stripe` | `stripe --version` | billing probes | `!brew install stripe/stripe-cli/stripe` |
-| `wrangler` | `wrangler --version` | Cloudflare | `!brew install cloudflare-wrangler2` (or `npm i -g wrangler`) |
 | `gh` | `gh auth status` | repo access over HTTPS | `!brew install gh` then `gh auth login` |
+| `stripe` *(deferred)* | `stripe --version` | billing probes — **only if Stripe is confirmed** | `!brew install stripe/stripe-cli/stripe` |
+| `wrangler` *(deferred)* | `wrangler --version` | Cloudflare — **only if Cloudflare is confirmed** | `!brew install cloudflare-wrangler2` (or `npm i -g wrangler`) |
 
 Notes:
 - **Model provider** is the user's choice (configured in `.env` / `config.yaml`; Hermes prompts
@@ -118,10 +123,11 @@ Notes:
   confirm the agent can complete a model turn (it can if it's responding).
 - `gh` over HTTPS only. This machine's SSH-to-GitHub is unreliable; never rely on
   `git push`/SSH (see Safety).
+- Note the present/missing result for `stripe`/`wrangler` so Phase 4 can offer the install line
+  exactly when a connector that needs one is confirmed — don't block here on a missing one.
 
-Mark `env_probe.done: true` with a `notes` summary (e.g. `"stripe+wrangler+gh present"`) only
-when every required CLI is present. If something's missing, leave it not-done and wait for the
-user.
+Mark `env_probe.done: true` with a `notes` summary (e.g. `"gh present; stripe missing (deferred)"`)
+once `gh` is present. A deferred CLI being absent does not hold up this phase.
 
 ## Phase 3 — Company inputs + launch background scans
 
@@ -140,49 +146,68 @@ findings to files under `raw/onboarding/` and touch a `.done` marker when finish
 
 Set `website_scan.background: true` / `repo_scan.background: true` with their `result_path`s.
 Then tell the user: *"I'm reading your website and repo in the background while we keep setting
-things up,"* and continue immediately to Phase 4. **Do not wait for the scans.**
+things up,"* and continue. **Do not wait for the deep scans.**
 
 Delegation is enabled in `config.yaml` (`orchestrator_enabled: true`,
 `max_concurrent_children: 3`, `child_timeout_seconds: 600`, child toolsets
 `[terminal, file, web]`). The file + `.done`-marker handoff means partial work survives even
 if a child times out or the gateway restarts.
 
-## Phase 4 — Stripe (read-only)
+**Then run the fast fingerprint probe (synchronous — this gates Phase 4).** The deep scans are
+slow and background; detection must be *fast*, so run the bundled probe now and wait for it (a
+few seconds):
 
-1. **Secret entry — run the scripts (see "Secret entry" above).** Get `STRIPE_SECRET_KEY` into
-   `.env` without the value ever reaching you:
-   - Try `scripts/discover-secret.sh STRIPE_SECRET_KEY --env-file <profile .env> --alias STRIPE_API_KEY --root <company_repo_path>`.
-   - If it exits non-zero, run `scripts/enter-secret.sh STRIPE_SECRET_KEY --env-file <profile .env> --prompt "Paste a restricted/read-only Stripe key"`.
-   Recommend a restricted/read-only key. Never paste the key into chat, never pass it as an
-   argument, never print it back. (If on Telegram: refuse, per golden rule 2.)
-2. **Read-only probes** using the `stripe` skill patterns (`-u "$STRIPE_SECRET_KEY:"`):
-   products, prices, payment links, and recent checkout sessions.
-3. **Record live-vs-test mode** from `livemode` in the responses.
-4. **Write KB pages** (concise, curated): `operations/stripe.md` (account mode, how billing is
-   wired), `products/catalog.md` (products/prices/links as ground truth), `company/payments.md`
-   (checkout mechanism, currencies). Never paste live object IDs, customer emails, or payment
-   IDs into anything that could be shared publicly — KB only.
-5. Mark `stripe.done: true`.
+```bash
+scripts/detect-integrations.sh "<website_url>" [--repo <company_repo_path>] --out "$AO1_KB_PATH/raw/onboarding/detected.json"
+```
 
-Onboarding is **read-only on Stripe.** No creating/updating/deactivating objects.
+It fetches a few public pages + greps the repo (read-only, no secrets) and emits a
+`detected[]` list — which payment, ecommerce, hosting, and channel providers the business
+actually uses. Write that list into `detected_integrations` in the state file. Phase 4 connects
+**only** what's detected (plus anything the user adds), so a non-Stripe business is never asked
+for a Stripe key. See `references/connectors.md` for the registry that drives this.
 
-## Phase 5 — Cloudflare (auth + record only)
+## Phase 4 — Connect detected services (registry-driven, read-only)
 
-1. **Authenticate:** `wrangler login` (interactive browser, local) — or, if the user prefers
-   non-interactive, get `CLOUDFLARE_API_TOKEN` into `.env` via the secret scripts (see "Secret
-   entry" above): try `scripts/discover-secret.sh CLOUDFLARE_API_TOKEN --env-file <profile .env>
-   --root <company_repo_path>`, falling back to `scripts/enter-secret.sh CLOUDFLARE_API_TOKEN
-   --env-file <profile .env>`. Never echo the token.
-2. **Detect the deploy target:** prefer a `wrangler.toml`/`wrangler.jsonc` found by the repo
-   scan. Otherwise list Pages projects / Workers (`wrangler pages project list`,
-   `wrangler deployments list`) and ask the user which one is their site.
-3. **Record** deploy method + project name in `operations/hosting.md`, plus the relationship
-   between the site and its Stripe links (so the `stripe` skill knows what to update when a
-   Payment Link changes).
-4. **Do not deploy anything.** Auth + record only.
-5. Mark `cloudflare.done: true`.
+This phase replaces the old fixed "ask for Stripe, then Cloudflare" steps. It connects **only
+the services the business actually uses**, driven by `references/connectors.md`. Telegram is the
+exception — it always runs, in Phase 6.
 
-## Phase 6 — KB bootstrap + reconcile scans
+1. **Detect → confirm.** Take `detected_integrations` (from the Phase 3 fingerprint) and union
+   it with anything the deep scans have already surfaced if they've finished
+   (`checkout_observed`, `stripe_refs`, `hosting`, `expected_env_vars`). Show the user the
+   detected set in **plain language**, naming the evidence, e.g.:
+   > I found **Stripe** — there's a payment link on your pricing page — and your site is hosted
+   > on **Cloudflare**. I didn't see Shopify, WooCommerce, or other tools. Want me to connect
+   > those two? Anything I should add?
+
+   Evidence **proposes**; the user **decides**. Add anything they name even without evidence;
+   drop anything they say they don't use. Record each as `detected`/`confirmed` in the state.
+   **Never ask for a service that's neither detected nor user-confirmed** — that's the whole
+   point (no unconditional Stripe key prompt).
+
+2. **For each confirmed connector, run its recipe** from `references/connectors.md`:
+   - **Tooling check:** if the recipe needs a CLI (`stripe`, `wrangler`) that Phase 2 found
+     missing, offer the copy-paste `!brew install …` now — only now is it known to be needed.
+   - **Secret(s):** obtain via the secret scripts (see "Secret entry" above) — discovery first,
+     hidden-input dialog fallback. Never echo, never pass as an argument, refuse on Telegram.
+   - **Read-only probe:** run the recipe's probe (e.g. Stripe products/prices/links;
+     `wrangler` deploy-target detection). **No writes, no deploys.**
+   - **KB pages:** write the recipe's curated pages (Stripe → `operations/stripe.md`,
+     `products/catalog.md`, `company/payments.md`; Cloudflare → `operations/hosting.md`,
+     including the site↔payment-link relationship). Never paste live IDs/emails into anything
+     shareable — KB only.
+   - Mark `connectors.<id>.done: true` with a short `notes`.
+
+3. **Stub connectors** (`status: stub` in the registry — Shopify, WooCommerce, Paddle, etc.):
+   acknowledge them, point the user at where that platform mints its API credential, and append
+   a `todo` to wire it later. Don't block onboarding on a stub.
+
+Onboarding stays **read-only** on every connector — auth + probe + record, no live writes or
+deploys. To add support for a new platform later, add a row to `references/connectors.md`; this
+phase needs no change.
+
+## Phase 5 — KB bootstrap + reconcile scans
 
 1. **Create the KB structure** (§KB structure below) **only if absent.** Never overwrite an
    existing page.
@@ -192,17 +217,21 @@ Onboarding is **read-only on Stripe.** No creating/updating/deactivating objects
    `*-scan.md` + `*-signals.json`. For any scan still running or timed out, append a
    `todo` ("re-run website scan", etc.) and **proceed anyway** — never block completion on a
    scan.
-3. **Synthesize the company profile.** Triangulate the three sources (website signals, repo
-   signals, Stripe ground truth) into `company/company-profile.json` and the curated pages.
-   Apply this precedence — don't let the loudest source win:
+3. **Synthesize the company profile.** Triangulate the available sources (website signals, repo
+   signals, and the **payment-provider ground truth** from whichever connector was confirmed —
+   Stripe for most, otherwise Shopify/Woo/etc., or none) into `company/company-profile.json` and
+   the curated pages. Apply this precedence — don't let the loudest source win:
 
    | Facet | Authoritative source | Others used for |
    |---|---|---|
-   | What's actually sold + real prices | **Stripe** | website = marketing, repo = wiring |
-   | Business-model classification | **all three combined** | — |
+   | What's actually sold + real prices | **confirmed payment connector** (e.g. Stripe); if none, **website** | website = marketing, repo = wiring |
+   | Business-model classification | **all sources combined** (incl. `detected_integrations`) | — |
    | Branding / positioning / tone | **website** | repo theme = colors/fonts |
    | Legal / registration / entity | **website footer + Terms/Privacy** | repo rarely has this |
-   | Stack / deploy / Stripe wiring / ID locations | **repo** | website = observed checkout |
+   | Stack / deploy / payment wiring / ID locations | **repo** | website = observed checkout |
+
+   If no payment connector was confirmed, fall back to marketed prices from the website and mark
+   them as *marketed, unverified* — don't invent a Stripe.
 
 4. **Surface conflicts — don't silently resolve.** When sources disagree on a material fact
    (classic: website says `$29/mo` but the active Stripe price is `$39/mo`; or brand name ≠
@@ -256,7 +285,7 @@ Onboarding is **read-only on Stripe.** No creating/updating/deactivating objects
 See `references/business-profile.md` for the company-profile schema and the business-model
 classification signals.
 
-## Phase 7 — Telegram activation (the handoff)
+## Phase 6 — Telegram activation (the handoff)
 
 1. **Create the bot:** walk the user through @BotFather (`/newbot`, pick a name + username).
    Get the **bot token** into `.env` as `TELEGRAM_BOT_TOKEN` via `scripts/enter-secret.sh
@@ -275,14 +304,16 @@ Remind the user: secrets and customer data should not be discussed over Telegram
 surface the `privacy.redact_pii: false` tradeoff (customer data may pass through Telegram in
 plaintext) as a conscious choice they're accepting.
 
-## Phase 8 — Acceptance check + handoff
+## Phase 7 — Acceptance check + handoff
 
 Verify the **definition of done** (all must pass):
 
 - [ ] Model provider configured; the agent can run a model turn.
 - [ ] `$AO1_KB_PATH` exists with the structure below and at least the curated company pages.
-- [ ] Stripe read-only probe returned the catalog into the KB.
-- [ ] Cloudflare authenticated; deploy target recorded in `operations/hosting.md`.
+- [ ] Integrations were **detected and confirmed** (not blindly asked for); every **confirmed**
+      connector is `done` (its read-only probe ran and its KB pages were written), and every
+      detected-but-`stub` one is queued as a `todo`. A business with no payment/hosting provider
+      is allowed to have none connected.
 - [ ] Company repo recorded (if provided); its scan reconciled or queued as a `todo`.
 - [ ] Telegram bot created, **locked to the owner's user ID**, gateway restarted, test message
       received.
@@ -316,18 +347,30 @@ Lives at `$AO1_KB_PATH/.onboarding-state.json`. Single source of truth for resum
     "company_repo_path": "/Users/owner/Projects/acme-site",
     "extra_sources": []
   },
+  "detected_integrations": [
+    { "id": "stripe",     "kind": "payments", "signals": [ { "source": "https://example.com/pricing", "marker": "buy.stripe.com link" } ] },
+    { "id": "cloudflare", "kind": "hosting",  "signals": [ { "source": "repo:.../acme-site", "marker": "wrangler.toml" } ] }
+  ],
   "steps": {
-    "env_probe":    { "done": true,  "notes": "stripe+wrangler+gh present" },
+    "env_probe":    { "done": true,  "notes": "gh present; stripe+wrangler checked on demand" },
     "website_scan": { "done": false, "background": true, "result_path": "raw/onboarding/website-scan.md" },
     "repo_scan":    { "done": false, "background": true, "result_path": "raw/onboarding/repo-scan.md" },
-    "stripe":       { "done": false },
-    "cloudflare":   { "done": false },
+    "detect":       { "done": false, "result_path": "raw/onboarding/detected.json" },
+    "connectors": {
+      "stripe":     { "detected": true,  "confirmed": true,  "done": false, "status": "wired" },
+      "cloudflare": { "detected": true,  "confirmed": true,  "done": false, "status": "wired" },
+      "shopify":    { "detected": false, "confirmed": false, "done": false, "status": "stub" }
+    },
     "kb":           { "done": false },
     "telegram":     { "done": false }
   },
   "todos": []
 }
 ```
+
+`connectors` is keyed by connector id (see `references/connectors.md`); only **confirmed** ones
+are connected, and a confirmed `wired` connector is `done` once its probe ran and pages were
+written. Detected `stub` connectors stay `done: false` and add a `todo`.
 
 A step that times out or is skipped appends a human-readable item to `todos` so a later run
 (or the user asking "finish onboarding") completes it.
@@ -347,12 +390,13 @@ $AO1_KB_PATH/
   products/
     catalog.md
   operations/
-    stripe.md
-    hosting.md                # Cloudflare deploy target + site↔Stripe relationship
+    stripe.md                 # only if Stripe was confirmed (per-connector pages)
+    hosting.md                # deploy target + site↔payment-link relationship (if a host was confirmed)
   decisions/
     YYYY-MM-DD-onboarding.md
   raw/
     onboarding/
+      detected.json           # fast fingerprint output that gated Phase 4
       website-scan.md / website-signals.json / website-scan.done
       repo-scan.md / repo-signals.json / repo-scan.done
 ```
@@ -376,5 +420,5 @@ Curated pages stay concise; raw scan output stays under `raw/onboarding/`.
 - Don't block onboarding on a slow scan; queue a `todo` and move on.
 - Don't paste live Stripe IDs / customer emails / payment IDs into anything shareable.
 - If `$AO1_KB_PATH` doesn't exist at Phase 1, create the KB dir first, then the state file.
-- The gateway can't restart itself — Phase 7 needs the user (or you) to run
+- The gateway can't restart itself — Phase 6 needs the user (or you) to run
   `hermes gateway restart`.

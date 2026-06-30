@@ -44,13 +44,12 @@ The intern walks you through setup at the Terminal, then hands you off to Telegr
 | Phase | What the intern does |
 |---|---|
 | **1 · Trigger** | Detects first run, creates the KB + its state file in your working directory, greets you in plain language |
-| **2 · Tools** | Checks `stripe`, `wrangler`, `gh` — gives you copy-paste install lines for anything missing |
-| **3 · Your company** | Asks for your website URL (and optional repo), then scans both **in the background** while setup continues |
-| **4 · Stripe** | You paste your key locally (never echoed); read-only probe pulls your catalog into the KB |
-| **5 · Cloudflare** | `wrangler login`, detect your deploy target, record it — **no deploys** during setup |
-| **6 · Knowledge base** | Builds the KB and synthesizes a company profile from website + repo + Stripe, flagging anything that conflicts |
-| **7 · Telegram** | BotFather → token (local) → **locks the bot to your user ID** → restarts the gateway → sends a test message |
-| **8 · Done** | Verifies everything, writes a decision record, and teaches your first Telegram commands |
+| **2 · Tools** | Checks `gh` (and, on demand later, `stripe`/`wrangler`) — gives you copy-paste install lines for anything missing |
+| **3 · Your company** | Asks for your website URL (and optional repo), scans both **in the background**, then fingerprints which services you actually use |
+| **4 · Connect** | Shows what it detected (e.g. Stripe, Cloudflare), confirms with you, and connects **only those** — read-only, secrets entered locally and never echoed. No Stripe? It won't ask for one |
+| **5 · Knowledge base** | Builds the KB and synthesizes a company profile from website + repo + your confirmed providers, flagging anything that conflicts |
+| **6 · Telegram** | BotFather → token (local) → **locks the bot to your user ID** → restarts the gateway → sends a test message |
+| **7 · Done** | Verifies everything, writes a decision record, and teaches your first Telegram commands |
 
 Setup runs at the **local Terminal** (it involves passwords and browser logins). Day-to-day
 runs on **Telegram** — secrets and interactive auth never travel through Telegram.
@@ -71,7 +70,7 @@ triage uses customer context.
 
 | Skill | Description | Status |
 |-------|-------------|--------|
-| **onboarding** | First-run business setup — drives Phases 1–8 above; resumable via a state file | ✅ Available |
+| **onboarding** | First-run business setup — drives Phases 1–7 above; resumable via a state file | ✅ Available |
 | **stripe** | Stripe billing/storefront operations and purchase verification for support workflows | ✅ Available |
 | **google-meet** | Live meeting copilot — join/observe a Meet, transcribe captions, optionally speak, follow up | ✅ Available |
 | **customer-email-sorter** | Triage customer/support email with read-only mailbox handling and draft-only replies (not wired by v1 onboarding) | ✅ Available |

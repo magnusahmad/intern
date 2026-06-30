@@ -56,18 +56,30 @@ Phase 1  Deterministic first-run trigger (SOUL.md → onboarding skill)
 Phase 2  Environment probe (verify codex, stripe, wrangler, gh)
 Phase 3  Company inputs: website URL + optional repo path
             └─► spawn BACKGROUND subagents to scan website + repo (non-blocking)
-Phase 4  Stripe: local key entry (no echo) → read-only probes → KB pages
-Phase 5  Cloudflare: wrangler auth → detect deploy target → record
-Phase 6  KB bootstrap (idempotent): create structure, reconcile background scan results
-Phase 7  Telegram activation: BotFather → token (local) → lock to user ID → restart → test msg
-Phase 8  Acceptance check + handoff (first Telegram commands)
+            └─► FAST fingerprint probe (synchronous) → detected_integrations
+Phase 4  Connect detected services (registry-driven): detect → confirm → onboard only
+            confirmed connectors (Stripe, Cloudflare, …); read-only key entry + probes + KB pages
+Phase 5  KB bootstrap (idempotent): create structure, reconcile background scan results
+Phase 6  Telegram activation: BotFather → token (local) → lock to user ID → restart → test msg
+Phase 7  Acceptance check + handoff (first Telegram commands)
 ```
 
 The two halves are deliberately separated by channel:
 
-- **Phases 0–7 run at the local Terminal** (interactive auth + secret entry).
-- **Phase 8 onward is Telegram.** Secrets and interactive auth must *never* travel through
+- **Phases 0–6 run at the local Terminal** (interactive auth + secret entry).
+- **Phase 7 onward is Telegram.** Secrets and interactive auth must *never* travel through
   Telegram (chat history is retained on Telegram's servers).
+
+### 4.7 Evidence-driven connector selection
+Onboarding does **not** ask for every integration unconditionally. Phase 3 runs a fast,
+read-only **fingerprint** (`scripts/detect-integrations.sh` — public-page markers + repo greps,
+no secrets) that, combined with the deeper background scans (`checkout_observed`, `stripe_refs`,
+`hosting`, `expected_env_vars`), yields `detected_integrations`. Phase 4 then **detects →
+confirms with the user → onboards only the confirmed set**, driven by a connector registry
+(`skills/onboarding/references/connectors.md`). A business with no Stripe is never asked for a
+Stripe key; a business on Shopify/WooCommerce is acknowledged and queued (stub) or connected
+(once wired). Adding a new platform is a registry row, not a flow change. Telegram is the one
+non-evidence connector — it always runs (it's the handoff channel).
 
 ---
 
