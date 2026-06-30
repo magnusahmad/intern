@@ -26,17 +26,17 @@ from pathlib import Path
 WIKILINK = re.compile(r"\[\[([^\]|#]+)(?:[#|][^\]]*)?\]\]")
 H1 = re.compile(r"^#\s+(.+)$", re.MULTILINE)
 
-# Obsidian-ish palette, keyed by the KB's top-level folder.
+# Nous Research / Geist accent palette on near-black, keyed by top-level folder.
 GROUP_COLORS = {
-    "company": "#7aa2f7",
-    "products": "#9ece6a",
-    "operations": "#e0af68",
-    "decisions": "#bb9af7",
-    "people": "#f7768e",
-    "customers": "#ff9e64",
-    "raw": "#565f89",
-    "_root": "#73daca",
-    "_other": "#73daca",
+    "company": "#0070f3",   # blue — the core
+    "products": "#50e3c2",  # cyan
+    "operations": "#f5a623",  # amber
+    "decisions": "#7928ca",   # purple
+    "people": "#ff0080",      # pink
+    "customers": "#ff0080",
+    "raw": "#444444",         # dim — raw material recedes
+    "_root": "#ededed",       # near-white hub
+    "_other": "#ededed",
 }
 
 
@@ -117,38 +117,57 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <title>__TITLE__</title>
 <script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
 <style>
-  html, body { margin: 0; height: 100%; background: #1a1b26; color: #c0caf5;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  :root {
+    --bg: #0a0a0a; --fg: #ededed; --muted: #666; --line: #1f1f1f;
+    --accent: #0070f3;
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg);
+    font-family: var(--mono); }
   #graph { width: 100%; height: 100vh; }
-  #header { position: fixed; top: 16px; left: 20px; z-index: 5; }
-  #header h1 { margin: 0; font-size: 16px; font-weight: 600; }
-  #header p { margin: 2px 0 0; font-size: 12px; color: #565f89; }
-  #legend { position: fixed; bottom: 16px; left: 20px; z-index: 5; font-size: 12px;
-    background: rgba(26,27,38,0.7); padding: 8px 12px; border-radius: 8px; }
-  #legend span { display: inline-flex; align-items: center; margin-right: 14px; }
-  #legend i { width: 10px; height: 10px; border-radius: 50%; display: inline-block;
-    margin-right: 6px; }
+  /* hairline frame, Nous-style */
+  #frame { position: fixed; inset: 14px; border: 1px solid var(--line);
+    pointer-events: none; z-index: 4; }
+  #header { position: fixed; top: 30px; left: 32px; z-index: 5; }
+  #header h1 { margin: 0; font-size: 13px; font-weight: 500; letter-spacing: 0.08em;
+    text-transform: uppercase; }
+  #header p { margin: 6px 0 0; font-size: 11px; color: var(--muted);
+    letter-spacing: 0.12em; text-transform: uppercase; }
+  #legend { position: fixed; bottom: 30px; left: 32px; z-index: 5; font-size: 10px;
+    letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted);
+    background: rgba(10,10,10,0.75); border: 1px solid var(--line); padding: 10px 14px; }
+  #legend span { display: inline-flex; align-items: center; margin-right: 16px; }
+  #legend i { width: 7px; height: 7px; border-radius: 50%; display: inline-block;
+    margin-right: 7px; }
+  #hint { position: fixed; bottom: 30px; right: 32px; z-index: 5; font-size: 10px;
+    letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
 </style>
 </head>
 <body>
+<div id="frame"></div>
 <div id="header"><h1>__TITLE__</h1><p>__SUBTITLE__</p></div>
 <div id="legend">__LEGEND__</div>
+<div id="hint">drag · scroll to zoom · hover</div>
 <div id="graph"></div>
 <script>
   const nodes = new vis.DataSet(__NODES__);
   const edges = new vis.DataSet(__EDGES__);
   const container = document.getElementById("graph");
   const network = new vis.Network(container, { nodes, edges }, {
-    nodes: { shape: "dot", scaling: { min: 8, max: 34 },
-      font: { color: "#c0caf5", size: 14, face: "-apple-system" },
-      borderWidth: 0 },
-    edges: { color: { color: "#3b4261", highlight: "#7aa2f7" }, width: 1,
-      smooth: { type: "continuous" } },
+    nodes: { shape: "dot", scaling: { min: 7, max: 30 },
+      font: { color: "#ededed", size: 13, face: "ui-monospace, SF Mono, Menlo, monospace",
+        strokeWidth: 0, vadjust: -2 },
+      borderWidth: 0,
+      shadow: { enabled: true, color: "rgba(0,0,0,0.6)", size: 14, x: 0, y: 0 } },
+    edges: { color: { color: "#262626", highlight: "#0070f3", hover: "#0070f3" },
+      width: 1, hoverWidth: 1, selectionWidth: 1,
+      smooth: { type: "continuous", roundness: 0.4 } },
     physics: { solver: "forceAtlas2Based",
-      forceAtlas2Based: { gravitationalConstant: -45, springLength: 110,
-        springConstant: 0.08 },
-      stabilization: { iterations: 200 } },
-    interaction: { hover: true, tooltipDelay: 120, navigationButtons: false }
+      forceAtlas2Based: { gravitationalConstant: -48, springLength: 120,
+        springConstant: 0.08, avoidOverlap: 0.4 },
+      stabilization: { iterations: 220 } },
+    interaction: { hover: true, tooltipDelay: 120, navigationButtons: false,
+      hoverConnectedEdges: true }
   });
 </script>
 </body>
