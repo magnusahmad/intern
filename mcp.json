@@ -1,5 +1,5 @@
 {
   "$schema": "https://hermes-agent.nousresearch.com/schemas/mcp.json",
-  "description": "MCP servers connected to the AO1 Intern agent. Add servers via `hermes mcp add` or by editing this file.",
+  "description": "MCP servers connected to the Intern agent. Add servers via `hermes mcp add` or by editing this file.",
   "servers": []
 }

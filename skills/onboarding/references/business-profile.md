@@ -7,7 +7,7 @@ reads.
 
 Synthesis runs in the **main onboarding agent** at Phase 6, once Stripe (Phase 4) and the
 background scans are in. It triangulates all three sources into
-`$AO1_KB_PATH/company/company-profile.json` plus curated KB pages.
+`$INTERN_KB_PATH/company/company-profile.json` plus curated KB pages.
 
 ## Business-model classification
 
@@ -59,7 +59,7 @@ isolated dot, so connect each page to what it relates to.
 
 ## `company-profile.json` schema
 
-Lives at `$AO1_KB_PATH/company/company-profile.json`.
+Lives at `$INTERN_KB_PATH/company/company-profile.json`.
 
 ```json
 {

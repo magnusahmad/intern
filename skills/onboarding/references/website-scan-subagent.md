@@ -7,7 +7,7 @@ happens later in the main agent (Phase 6).
 - **Toolsets:** `web`, `file` (Hermes built-in web-extract / browser-navigate / computer-use —
   no Firecrawl key required).
 - **Inputs:** the company `website_url`, plus any `extra_sources` URLs.
-- **Output files** (under `$AO1_KB_PATH/raw/onboarding/`):
+- **Output files** (under `$INTERN_KB_PATH/raw/onboarding/`):
   - `website-scan.md` — human-readable findings.
   - `website-signals.json` — structured signals (see facets below), every fact tagged with the
     URL it came from.
@@ -33,9 +33,9 @@ happens later in the main agent (Phase 6).
 > - **Checkout mechanism observed:** Stripe Payment Link / Checkout URL, app-store link,
 >   contact/quote form, etc. This is a strong business-model signal — record it.
 >
-> Write `$AO1_KB_PATH/raw/onboarding/website-scan.md` (readable) and
+> Write `$INTERN_KB_PATH/raw/onboarding/website-scan.md` (readable) and
 > `website-signals.json` (structured), then `touch
-> $AO1_KB_PATH/raw/onboarding/website-scan.done`. Do not modify anything outside
+> $INTERN_KB_PATH/raw/onboarding/website-scan.done`. Do not modify anything outside
 > `raw/onboarding/`. If a page is unreachable, note it and continue — partial results are fine.
 
 ## `website-signals.json` shape

@@ -1,12 +1,12 @@
 ---
 name: onboarding
-description: First-run business setup for the ao1-intern profile. Drives a non-technical owner from a fresh install to "I run my business through Telegram" — probing tooling, fingerprinting the company website + repo to detect which services it actually uses, then wiring only those credentials locally (Stripe, Cloudflare, … via an extensible connector registry) plus Telegram, and bootstrapping the KB as the company brain. Resumable and idempotent via a single state file.
+description: First-run business setup for the intern profile. Drives a non-technical owner from a fresh install to "I run my business through Telegram" — probing tooling, fingerprinting the company website + repo to detect which services it actually uses, then wiring only those credentials locally (Stripe, Cloudflare, … via an extensible connector registry) plus Telegram, and bootstrapping the KB as the company brain. Resumable and idempotent via a single state file.
 version: 1.0.0
 author: Hermes Agent
 license: MIT
 platforms: [macos]
 prerequisites:
-  # AO1_KB_PATH is intentionally NOT listed: when unset the skill resolves the KB to the
+  # INTERN_KB_PATH is intentionally NOT listed: when unset the skill resolves the KB to the
   # current working directory and persists it (Phase 1), so Hermes must not prompt for it.
   # Only `gh` is a hard prerequisite. `stripe`/`wrangler` are checked on demand in Phase 4,
   # and only when their connector is actually detected + confirmed — a business that uses
@@ -20,8 +20,8 @@ metadata:
 
 # Onboarding — First-Run Business Setup
 
-This skill turns a fresh `ao1-intern` install into a working business-ops agent. It owns
-Phases 1–8 of the onboarding flow (spec `specs/03-onboarding-flow.md`). The single design
+This skill turns a fresh `intern` install into a working business-ops agent. It owns
+Phases 1–7 of the onboarding flow (spec `specs/03-onboarding-flow.md`). The single design
 goal: **a non-coder who can open Terminal and paste a line or two should succeed.** Do as
 much as possible yourself; ask the human only for things only they can do (browser logins,
 secrets, business facts).
@@ -30,7 +30,7 @@ secrets, business facts).
 
 Load this skill when **any** of these is true:
 
-- `$AO1_KB_PATH/.onboarding-state.json` is missing or its `status` is not `complete`
+- `$INTERN_KB_PATH/.onboarding-state.json` is missing or its `status` is not `complete`
   (the SOUL.md first-run guard sends you here automatically — this is the normal trigger).
 - The user says "finish onboarding", "set up my business", "redo setup", or similar.
 
@@ -39,7 +39,7 @@ from the KB instead.
 
 ## Golden rules (read before every phase)
 
-1. **Idempotent + resumable.** `$AO1_KB_PATH/.onboarding-state.json` (§schema below) is the
+1. **Idempotent + resumable.** `$INTERN_KB_PATH/.onboarding-state.json` (§schema below) is the
    single source of truth. Before any phase, read it and **skip steps already `done`**. After
    any phase, write completion back and bump `updated_at`. The user *will* close the terminal
    mid-flow and Hermes gateway restarts wipe conversation context — the state file is what
@@ -57,7 +57,7 @@ from the KB instead.
 6. **Don't silent-install.** Offer copy-paste `!brew install …` commands the user runs
    in-session; never install tooling yourself.
 
-## Secret entry (Phases 4, 5, 7) — you run the scripts, the value never reaches you
+## Secret entry (Phases 4 & 6) — you run the scripts, the value never reaches you
 
 Don't hand-write secret-entry scripts per run, and don't ask the user to paste a key into the
 chat. Two reviewed scripts ship in `scripts/`; **you** run them (with the user's approval) and
@@ -74,7 +74,7 @@ only ever see a `✓ … saved` line.
   The user types into the OS dialog (not the terminal, not the chat); the value goes straight to
   `.env`. Exit non-zero = cancelled/empty, nothing written.
 
-Use `<profile .env>` = the same `.env` you persist `AO1_KB_PATH` into (Phase 1). The scripts set
+Use `<profile .env>` = the same `.env` you persist `INTERN_KB_PATH` into (Phase 1). The scripts set
 `.env` to `chmod 600` and refuse to run if the channel is Telegram (defense in depth behind
 golden rule 2 — you must still never invoke them off the local Terminal).
 
@@ -83,16 +83,16 @@ golden rule 2 — you must still never invoke them off the local Terminal).
 ## Phase 1 — First-run trigger & greeting
 
 1. **Resolve the KB location with zero manual setup:**
-   - If `AO1_KB_PATH` is set and non-empty, use it.
+   - If `INTERN_KB_PATH` is set and non-empty, use it.
    - Otherwise default to the **current working directory** — the directory the user launched
      `hermes` from (`pwd`). This is deliberate: the KB lives right next to the project the
      owner is working in, so they never have to configure a path by hand.
    - Create the directory + structure if absent (the state file lives inside it).
-   - **Persist the resolved absolute path** into the profile's `.env` as `AO1_KB_PATH` (append
+   - **Persist the resolved absolute path** into the profile's `.env` as `INTERN_KB_PATH` (append
      it if missing; never echo other secrets while doing so). This makes every later run and
      the SOUL.md first-run guard resolve to the same KB without any manual step, and keeps this
      profile's KB from colliding with any other profile's.
-2. Read `$AO1_KB_PATH/.onboarding-state.json`. If absent, create it with `status:
+2. Read `$INTERN_KB_PATH/.onboarding-state.json`. If absent, create it with `status:
    "in_progress"`, `started_at` = now, `machine: "macos"`, `model_provider` = whatever the
    user configured (default `openrouter`), and all steps `done: false` (use the schema below).
 3. Greet the user in plain, non-technical language. Explain in 3–4 sentences what you're about
@@ -158,7 +158,7 @@ slow and background; detection must be *fast*, so run the bundled probe now and 
 few seconds):
 
 ```bash
-scripts/detect-integrations.sh "<website_url>" [--repo <company_repo_path>] --out "$AO1_KB_PATH/raw/onboarding/detected.json"
+scripts/detect-integrations.sh "<website_url>" [--repo <company_repo_path>] --out "$INTERN_KB_PATH/raw/onboarding/detected.json"
 ```
 
 It fetches a few public pages + greps the repo (read-only, no secrets) and emits a
@@ -250,8 +250,8 @@ phase needs no change.
    `scripts/build_kb_graph.py`) against the KB, then open the result so the user sees it:
 
    ```bash
-   python3 <this-skill-dir>/scripts/build_kb_graph.py "$AO1_KB_PATH"
-   open "$AO1_KB_PATH/kb-graph.html"
+   python3 <this-skill-dir>/scripts/build_kb_graph.py "$INTERN_KB_PATH"
+   open "$INTERN_KB_PATH/kb-graph.html"
    ```
 
    It writes `kb-graph.html` — a self-contained, Obsidian-style force-directed graph (nodes
@@ -309,7 +309,7 @@ plaintext) as a conscious choice they're accepting.
 Verify the **definition of done** (all must pass):
 
 - [ ] Model provider configured; the agent can run a model turn.
-- [ ] `$AO1_KB_PATH` exists with the structure below and at least the curated company pages.
+- [ ] `$INTERN_KB_PATH` exists with the structure below and at least the curated company pages.
 - [ ] Integrations were **detected and confirmed** (not blindly asked for); every **confirmed**
       connector is `done` (its read-only probe ran and its KB pages were written), and every
       detected-but-`stub` one is queued as a `todo`. A business with no payment/hosting provider
@@ -332,7 +332,7 @@ Then:
 
 ## `.onboarding-state.json` schema
 
-Lives at `$AO1_KB_PATH/.onboarding-state.json`. Single source of truth for resume/idempotency.
+Lives at `$INTERN_KB_PATH/.onboarding-state.json`. Single source of truth for resume/idempotency.
 
 ```json
 {
@@ -378,7 +378,7 @@ A step that times out or is skipped appends a human-readable item to `todos` so 
 ## KB structure (created only if absent)
 
 ```
-$AO1_KB_PATH/
+$INTERN_KB_PATH/
   README.md
   .onboarding-state.json
   kb-graph.html                 # Obsidian-style visual map (regenerated from [[wikilinks]])
@@ -419,6 +419,6 @@ Curated pages stay concise; raw scan output stays under `raw/onboarding/`.
 - Don't re-run completed steps — always read the state file first.
 - Don't block onboarding on a slow scan; queue a `todo` and move on.
 - Don't paste live Stripe IDs / customer emails / payment IDs into anything shareable.
-- If `$AO1_KB_PATH` doesn't exist at Phase 1, create the KB dir first, then the state file.
+- If `$INTERN_KB_PATH` doesn't exist at Phase 1, create the KB dir first, then the state file.
 - The gateway can't restart itself — Phase 6 needs the user (or you) to run
   `hermes gateway restart`.

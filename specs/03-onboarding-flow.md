@@ -1,14 +1,14 @@
-# Spec 03 — AO1 Intern Onboarding Flow (Hardened)
+# Spec 03 — Intern Onboarding Flow (Hardened)
 
 Status: Draft · 2026-06-29
-Scope: First-run business setup for the `ao1-intern` Hermes profile distribution.
+Scope: First-run business setup for the `intern` Hermes profile distribution.
 Owner skill (to build): `skills/onboarding/SKILL.md`
 
 ---
 
 ## 1. Purpose
 
-Turn `ao1-intern` from "a profile with some skills" into a **first-run business setup
+Turn `intern` from "a profile with some skills" into a **first-run business setup
 agent**. After installing the profile, a non-technical small-business owner should be able
 to go from zero to "I run my business through Telegram" with the intern doing almost all of
 the work — installing tooling, wiring credentials, scanning the company's website and repo,
@@ -32,7 +32,7 @@ whiz. Can open Terminal and paste a command.
 | Model provider | **Codex subscription** (ChatGPT/Codex auth, no per-token API key) |
 | Payments | **Stripe** |
 | Hosting | **Cloudflare** (Pages/Workers via `wrangler`) |
-| Knowledge | **AO1 KB** at `$AO1_KB_PATH` |
+| Knowledge | **Intern KB** at `$INTERN_KB_PATH` |
 | Website ingestion | Hermes's shipped **computer-use / web-extract / browser-navigate** — no Firecrawl key dependency |
 | Company repo | **Optional** input; scanned for stack, deploy config, and Stripe references |
 | Operating channel | **Telegram** (after onboarding) |
@@ -92,7 +92,7 @@ Do **not** rely on the user typing a magic phrase, and do **not** assume a Herme
 hook." Instead, `SOUL.md` — which is reloaded fresh every session — carries a first-run
 guard:
 
-> Before doing anything else, check whether `$AO1_KB_PATH/.onboarding-state.json` exists and
+> Before doing anything else, check whether `$INTERN_KB_PATH/.onboarding-state.json` exists and
 > is marked complete. If it is missing or incomplete, this is onboarding: load the
 > `onboarding` skill and resume from the last incomplete step.
 
@@ -106,7 +106,7 @@ backend rather than OpenRouter.
 
 > Implementation note (verify exact keys before coding): set `model.provider` to the Codex
 > provider Hermes exposes and authenticate via `codex login`. The current dev machine's
-> `config/ao1-intern.local.json` shows a `codex_exec` block (`model: gpt-5.5`,
+> `config/intern.local.json` shows a `codex_exec` block (`model: gpt-5.5`,
 > `service_tier: fast`) and `model_provider.credential_ref: keychain://…`, which is the
 > reference for how Codex is wired locally. Confirm whether the shipped `config.yaml` should
 > express Codex as the chat model directly or via the codex-exec path.
@@ -116,7 +116,7 @@ subscription satisfies this).
 
 ### 4.3 Secrets: local `.env`, never echoed, never via Telegram
 The distribution ships `.env`-based secrets (`.env`/`.env.*` are gitignored; the keychain
-model in `config/ao1-intern.local.json` is dev-machine-only and does **not** ship). The
+model in `config/intern.local.json` is dev-machine-only and does **not** ship). The
 onboarding skill:
 - accepts secrets only at the local Terminal,
 - writes them straight into `.env` without printing them back,
@@ -131,7 +131,7 @@ it is never a command argument, never in captured stdout, never echoed — keepi
 agent's context entirely. Both scripts `chmod 600` the `.env` and self-refuse on Telegram.
 
 ### 4.4 Idempotent, resumable state
-A single source of truth tracks progress: `$AO1_KB_PATH/.onboarding-state.json` (schema in
+A single source of truth tracks progress: `$INTERN_KB_PATH/.onboarding-state.json` (schema in
 §6). Every phase:
 - checks the state file before acting (skip if done),
 - never overwrites an existing KB,
@@ -162,8 +162,8 @@ repo write require explicit confirmation regardless of approval mode.
 The only hand-done part. README states plainly that this is the one manual step:
 
 ```bash
-hermes profile install https://github.com/magnusahmad/ao1-intern
-hermes profile use ao1-intern
+hermes profile install https://github.com/magnusahmad/intern
+hermes profile use intern
 codex login          # authenticate the Codex subscription (browser, one time)
 cp .env.example .env # then run hermes
 hermes
@@ -173,7 +173,7 @@ On first `hermes`, Phase 1 fires automatically.
 
 ### Phase 1 — First-run trigger
 SOUL.md guard (§4.1) loads the `onboarding` skill. The skill creates
-`$AO1_KB_PATH/.onboarding-state.json` (status `in_progress`) if absent, then greets the user
+`$INTERN_KB_PATH/.onboarding-state.json` (status `in_progress`) if absent, then greets the user
 in plain language and explains what it's about to do.
 
 ### Phase 2 — Environment probe
@@ -250,7 +250,7 @@ Verify the definition of done (§9), write `decisions/<date>-onboarding.md`, set
 
 ## 6. `.onboarding-state.json` schema
 
-Lives at `$AO1_KB_PATH/.onboarding-state.json`. Single source of truth for resume/idempotency.
+Lives at `$INTERN_KB_PATH/.onboarding-state.json`. Single source of truth for resume/idempotency.
 
 ```json
 {
@@ -352,7 +352,7 @@ edits know where to go).
 - Extract the facets in §7.2 a–e as raw signals, each tagged with the URL it came from.
 - Note checkout mechanism observed (Stripe Payment Link/Checkout URL, app store, contact
   form) — this is a strong business-model signal.
-- Output: `$AO1_KB_PATH/raw/onboarding/website-scan.md` (human-readable) **and**
+- Output: `$INTERN_KB_PATH/raw/onboarding/website-scan.md` (human-readable) **and**
   `raw/onboarding/website-signals.json` (structured), then touch `website-scan.done`.
 
 ### 7.4 Repo scan subagent (extraction)
@@ -364,7 +364,7 @@ edits know where to go).
   storefront + cart → ecommerce; marketing-only site → services/other.
 - Grep for Stripe references: `plink_`, `price_`, `prod_`, `pk_live`/`pk_test`, `cs_`,
   checkout/payment-link URLs; and locate where catalog/pricing is defined in code or content.
-- Output: `$AO1_KB_PATH/raw/onboarding/repo-scan.md` **and**
+- Output: `$INTERN_KB_PATH/raw/onboarding/repo-scan.md` **and**
   `raw/onboarding/repo-signals.json`, then touch `repo-scan.done`.
 
 ### 7.5 Synthesis & triangulation (Phase 6, main agent)
@@ -392,7 +392,7 @@ Synthesis writes `company-profile.json` (§7.6) plus the curated pages: `company
 
 ### 7.6 `company-profile.json` schema
 
-Lives at `$AO1_KB_PATH/company/company-profile.json`; the durable structured profile other
+Lives at `$INTERN_KB_PATH/company/company-profile.json`; the durable structured profile other
 skills can read.
 
 ```json
@@ -468,7 +468,7 @@ skills can read.
 ## 8. KB structure (created only if absent)
 
 ```
-$AO1_KB_PATH/
+$INTERN_KB_PATH/
   README.md
   .onboarding-state.json
   company/
@@ -497,7 +497,7 @@ Curated pages stay concise; raw scan output stays under `raw/onboarding/`.
 Onboarding is `complete` only when all of these pass:
 
 - [ ] `codex` authenticated; agent can run a model turn.
-- [ ] `$AO1_KB_PATH` exists with the §8 structure and at least the curated company pages.
+- [ ] `$INTERN_KB_PATH` exists with the §8 structure and at least the curated company pages.
 - [ ] Stripe read-only probe returned the catalog (products/prices/links) into KB.
 - [ ] Cloudflare authenticated and the deploy target is recorded in `operations/hosting.md`.
 - [ ] Company repo recorded (if provided) and its scan reconciled or queued as a `todo`.
@@ -543,13 +543,13 @@ The onboarding skill and `config.yaml` must enforce, independent of approval mod
 ## 12. Open implementation questions
 
 1. **Exact Codex provider wiring in `config.yaml`** — express Codex as the chat model
-   directly, or route via the codex-exec path shown in `config/ao1-intern.local.json`?
+   directly, or route via the codex-exec path shown in `config/intern.local.json`?
    Confirm the provider key Hermes expects and how it reads Codex subscription auth.
 2. **Subagent backgrounding semantics** — confirm Hermes delegation can run children
    fire-and-forget (file-based handoff) vs. orchestrator blocking on child return. The
    file + `.done` marker contract (§7) is designed to work either way, but verify.
 3. **`wrangler` non-interactive path** — confirm whether `CLOUDFLARE_API_TOKEN` covers
    listing Pages/Workers, or whether `wrangler login` (browser) is required for discovery.
-4. **Where `.onboarding-state.json` should live** if `$AO1_KB_PATH` doesn't exist yet at
+4. **Where `.onboarding-state.json` should live** if `$INTERN_KB_PATH` doesn't exist yet at
    Phase 1 — create the KB dir first, then the state file inside it.
 ```

@@ -24,7 +24,7 @@ validate_name() {
 # running this over Telegram, the script itself refuses. The agent should still
 # never invoke us off the local Terminal.
 refuse_if_telegram() {
-  local channel="${HERMES_CHANNEL:-${AO1_CHANNEL:-local}}"
+  local channel="${HERMES_CHANNEL:-${INTERN_CHANNEL:-local}}"
   if [[ "$channel" == "telegram" ]]; then
     echo "refusing: secrets may only be entered at the local Terminal, never over Telegram" >&2
     return 1
@@ -33,14 +33,14 @@ refuse_if_telegram() {
 
 # --- env-file resolution ----------------------------------------------------
 # Resolve the target .env. Precedence: explicit --env-file (passed by caller as
-# $1) > $HERMES_ENV_FILE > $AO1_ENV_FILE > ./.env. Echoes the resolved path so
+# $1) > $HERMES_ENV_FILE > $INTERN_ENV_FILE > ./.env. Echoes the resolved path so
 # the caller can report *where* a secret landed (path is not sensitive).
 resolve_env_file() {
   local explicit="${1:-}"
   if [[ -n "$explicit" ]]; then
     printf '%s\n' "$explicit"
   else
-    printf '%s\n' "${HERMES_ENV_FILE:-${AO1_ENV_FILE:-$PWD/.env}}"
+    printf '%s\n' "${HERMES_ENV_FILE:-${INTERN_ENV_FILE:-$PWD/.env}}"
   fi
 }
 

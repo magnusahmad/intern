@@ -1,10 +1,10 @@
-# AGENTS.md — Guidance for Agents Working in `ao1-intern`
+# AGENTS.md — Guidance for Agents Working in `intern`
 
-This repo is the **AO1 Intern profile distribution** — a shareable Hermes agent packaged as a
+This repo is the **Intern profile distribution** — a shareable Hermes agent packaged as a
 git repository. Consumers install it with:
 
 ```bash
-hermes profile install https://github.com/magnusahmad/ao1-intern
+hermes profile install https://github.com/magnusahmad/intern
 ```
 
 The distribution root (`./`) is the Hermes profile root. These files are the distribution
@@ -24,7 +24,7 @@ contract:
 
 ## What the intern is for
 
-AO1 Intern is a helpful intern that lives on the human's machine and does real work for them:
+Intern is a helpful intern that lives on the human's machine and does real work for them:
 running workflows like the live meeting copilot, billing, and customer-email triage, and keeping
 the company's knowledge base current. It is a workflow runner, not a planner or a delegation
 gateway. The substance lives in two places: the **skills** (what it can do) and the **KB** (what
@@ -32,7 +32,7 @@ it knows).
 
 ## The KB is the company brain
 
-The AO1 KB at `$AO1_KB_PATH` is the company's personal wiki and the agent's single source of
+The Intern KB at `$INTERN_KB_PATH` is the company's personal wiki and the agent's single source of
 truth — company context, strategy, pricing and product catalogue, people, customers, decisions,
 and the running log of company history and lore. Habits for any agent running inside this profile:
 

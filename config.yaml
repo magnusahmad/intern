@@ -1,4 +1,4 @@
-# AO1 Intern — Base Configuration
+# Intern — Base Configuration
 # Consumer profiles install this via `hermes profile install`.
 # Override any section by copying the key into your own profile config.yaml.
 

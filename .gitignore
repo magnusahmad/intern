@@ -1,6 +1,6 @@
 .DS_Store
 node_modules/
-.ao1-intern/
+.intern/
 config/*.local.json
 .env
 .env.*

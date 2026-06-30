@@ -4,7 +4,7 @@ Status: draft for implementation
 
 ## Summary
 
-AO1 Intern runs worker agents (Hermes, Codex) autonomously. This spec defines the
+Intern runs worker agents (Hermes, Codex) autonomously. This spec defines the
 runtime containment for those runs. The containment is **OS-level only**: filesystem,
 network egress, and process isolation. The agent decides what it needs and acts
 without per-action human approval. We do not scope connector-semantic actions (e.g.
@@ -12,9 +12,9 @@ which Stripe calls are allowed) and we do not harden against prompt injection in
 iteration.
 
 Containment is provided by **NVIDIA OpenShell** (the sandbox) and **NemoClaw** (the
-management stack that runs agents inside OpenShell). AO1 does not rebuild that layer.
+management stack that runs agents inside OpenShell). Intern does not rebuild that layer.
 The one capability NemoClaw/OpenShell does **not** provide — recovery of mutated or
-deleted local files — is added by AO1 as a thin rollback layer on top, using existing
+deleted local files — is added by Intern as a thin rollback layer on top, using existing
 open-source tools (git, restic, OverlayFS) rather than a custom engine.
 
 The contract:
@@ -24,8 +24,8 @@ Static baseline (fs + network ceiling, set by operator, deny-by-default)
 -> agent runs inside OpenShell sandbox via NemoClaw, no per-action approval
 -> in-baseline operations auto-allowed; out-of-baseline operations fail closed + logged
 -> NemoClaw/OpenShell emit the audit trail (tool calls, network, fs boundary)
--> AO1 snapshots writable roots before the run
--> on damage, AO1 rolls back local filesystem state from the snapshot
+-> Intern snapshots writable roots before the run
+-> on damage, Intern rolls back local filesystem state from the snapshot
 ```
 
 ## Threat Model
@@ -57,7 +57,7 @@ Out of scope (this iteration):
 - Rollback of external side effects (a sent email, a Stripe mutation) — see
   "Irreversibility boundary".
 
-## Architecture: NemoClaw / OpenShell vs AO1
+## Architecture: NemoClaw / OpenShell vs Intern
 
 OpenShell and NemoClaw are not alternatives. NemoClaw runs agents **inside** OpenShell.
 
@@ -70,9 +70,9 @@ OpenShell and NemoClaw are not alternatives. NemoClaw runs agents **inside** Ope
 | Credential gateway + inference proxy (secrets never reach the agent) | NemoClaw |
 | Audit logging of tool calls and network requests | NemoClaw |
 | Sandbox lifecycle orchestration | NemoClaw |
-| **Filesystem snapshot / rollback / file recovery** | **AO1 (this spec)** |
+| **Filesystem snapshot / rollback / file recovery** | **Intern (this spec)** |
 
-AO1 adopts the NemoClaw/OpenShell layer rather than reimplementing network allow-lists,
+Intern adopts the NemoClaw/OpenShell layer rather than reimplementing network allow-lists,
 credential injection, or audit collection. The repo's checked-in `src/policy.mjs`,
 `src/host-broker.mjs`, and `src/secrets.mjs` become the **host-side bridge/fallback**
 used only when the sandbox is unavailable; they are not the primary enforcement path.
@@ -98,9 +98,9 @@ stops. The baseline is therefore the durable ceiling, by design.
 
 - Endpoints and paths **listed in the baseline are auto-allowed**. There is no prompt
   and no human in the loop for in-baseline operations. This is NemoClaw's default
-  behavior, not something AO1 builds.
+  behavior, not something Intern builds.
 - Operations **outside the baseline fail closed**: the request is denied and logged. For
-  unattended and scheduled runs, AO1 does **not** start NemoClaw's interactive TUI
+  unattended and scheduled runs, Intern does **not** start NemoClaw's interactive TUI
   approver, so an out-of-baseline hit becomes a logged deny rather than a blocking
   prompt. "The model decides what it needs" therefore means: within the baseline the
   agent acts freely; beyond it, the action is denied and recorded, with no human gate.
@@ -119,12 +119,12 @@ Sourced from runtime facts, never from the agent's own account of what it did:
   `assertNoSecretsInText` from `src/secrets.mjs`).
 
 The combined record is written **append-only, outside the writable roots**, keyed by run
-id, extending the existing `.ao1-intern/delegations/` artifact
+id, extending the existing `.intern/delegations/` artifact
 (`src/delegation-audit.mjs`). The agent cannot edit its own trail.
 
-## Rollback (the only piece AO1 builds — thin)
+## Rollback (the only piece Intern builds — thin)
 
-Rollback recovers **local filesystem state**. AO1 builds no rollback engine; it
+Rollback recovers **local filesystem state**. Intern builds no rollback engine; it
 orchestrates three OSS mechanisms:
 
 1. **OverlayFS (in-container, kernel):** the run's upper layer is both the audit diff
@@ -135,12 +135,12 @@ orchestrates three OSS mechanisms:
 3. **restic (non-git writable roots):** `restic backup` the writable root before the run;
    rollback = `restic restore` to the pre-run snapshot. Scriptable, path-level, deduped.
 
-Glue AO1 adds:
+Glue Intern adds:
 
 - Snapshot-before-run of the writable roots (git clean-tree check + commit, or restic
   backup).
 - `rollback <run-id>` command that calls `git revert` or `restic restore` for that run.
-- Optional `unlink` interposition → move deletions to `.ao1-intern/trash/<run-id>/` so
+- Optional `unlink` interposition → move deletions to `.intern/trash/<run-id>/` so
   in-baseline deletions are recoverable without a full rollback.
 - A retention window for snapshots and trash.
 
@@ -179,7 +179,7 @@ it is an accepted consequence of descoping connector control.
 
 ### Phase 2: Audit consumption
 - Collect NemoClaw audit log + OverlayFS changeset + scrubbed exec log into the
-  `.ao1-intern/delegations/` run record, append-only, outside writable roots.
+  `.intern/delegations/` run record, append-only, outside writable roots.
 
 ### Phase 3: Snapshot + rollback
 - Snapshot-before-run (git for repo roots, restic for the rest).
@@ -216,9 +216,9 @@ it is an accepted consequence of descoping connector control.
   mid-run.)
 - restic vs OverlayFS-discard as the primary rollback mechanism for non-git roots, or
   both?
-- What retention window for snapshots and `.ao1-intern/trash/`?
+- What retention window for snapshots and `.intern/trash/`?
 - Should the host-broker/`sandbox-exec` bridge remain a real fallback execution path, or
   only a preflight check before requiring the sandbox?
-- Where is the audit record stored long-term — repo, AO1 control plane, or both — given
+- Where is the audit record stored long-term — repo, Intern control plane, or both — given
   the agent must not be able to edit it?
 ```

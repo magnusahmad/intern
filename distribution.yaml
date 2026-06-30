@@ -1,23 +1,23 @@
 # Profile Distribution Manifest
 # https://hermes-agent.nousresearch.com/docs/user-guide/profile-distributions
 
-name: ao1-intern
+name: intern
 version: "1.0.0"
 hermes_requires: ">=0.9.0"
 
 description: >
-  AO1 Intern — an agent that onboards itself to your business. On first run it
+  Intern — an agent that onboards itself to your business. On first run it
   studies your website, company docs, and repo to build a knowledge base that
   acts as the company brain, then selectively activates the skills that fit your
   profile. It's the fastest route from install to executing valuable business
   automations. The knowledge base constantly updates itself — minimizing
   maintenance overhead and letting the intern continually discover new value-adds.
 
-homepage: https://github.com/magnusahmad/ao1-intern
+homepage: https://github.com/magnusahmad/intern
 license: MIT
 
 # First-run entrypoint. SOUL.md's deterministic guard loads this skill whenever
-# $AO1_KB_PATH/.onboarding-state.json is missing or not yet `complete`.
+# $INTERN_KB_PATH/.onboarding-state.json is missing or not yet `complete`.
 entrypoint:
   skill: onboarding
   spec: specs/03-onboarding-flow.md
@@ -29,10 +29,10 @@ env_requires:
   - name: OPENROUTER_API_KEY
     description: API key for the default model provider (OpenRouter). Swap provider via AGENT_PROVIDER/AGENT_MODEL to use any other.
     required: true
-  - name: AO1_KB_PATH
-    description: Path to the AO1 knowledge base on this machine (the company brain)
+  - name: INTERN_KB_PATH
+    description: Path to the Intern knowledge base on this machine (the company brain)
     required: false
-    default: ~/Documents/Projects/ao1-kb
+    default: ~/Documents/Projects/intern-kb
   - name: STRIPE_SECRET_KEY
     description: Stripe secret key for billing and purchase-verification workflows (entered locally during onboarding)
     required: false

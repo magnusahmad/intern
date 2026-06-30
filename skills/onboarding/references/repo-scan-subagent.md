@@ -6,7 +6,7 @@ technical reality and writes them to files. It does not classify the business.
 
 - **Toolsets:** `file`, `terminal` (read-only use).
 - **Inputs:** the company `company_repo_path`.
-- **Output files** (under `$AO1_KB_PATH/raw/onboarding/`):
+- **Output files** (under `$INTERN_KB_PATH/raw/onboarding/`):
   - `repo-scan.md` — human-readable findings.
   - `repo-signals.json` — structured signals.
   - touch `repo-scan.done` **last**, only after both files are written.
@@ -30,8 +30,8 @@ technical reality and writes them to files. It does not classify the business.
 > - **Where catalog/pricing is defined** in code or content (e.g. `content/products.ts`), so
 >   future edits know where to go.
 >
-> Write `$AO1_KB_PATH/raw/onboarding/repo-scan.md` (readable) and `repo-signals.json`
-> (structured), then `touch $AO1_KB_PATH/raw/onboarding/repo-scan.done`. Do not write anything
+> Write `$INTERN_KB_PATH/raw/onboarding/repo-scan.md` (readable) and `repo-signals.json`
+> (structured), then `touch $INTERN_KB_PATH/raw/onboarding/repo-scan.done`. Do not write anything
 > inside the company repo. Partial results are fine — note anything you couldn't determine.
 
 ## `repo-signals.json` shape

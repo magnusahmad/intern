@@ -17,13 +17,13 @@
 # ─────────────────────────────────────────────────────────────────
 # The intended use of cron here is to keep the company brain current:
 # scheduled jobs that pull new messages (chat, email, meeting notes) into
-# raw captures, then summarize them into curated KB entries under $AO1_KB_PATH.
+# raw captures, then summarize them into curated KB entries under $INTERN_KB_PATH.
 #
 # Example sketch (disabled — fill in once the capture/summarize workflow exists):
 # capture-to-kb.cron
 #   schedule: "0 18 * * *"
 #   prompt: |
 #     Pull today's new messages into raw captures, summarize the durable facts
-#     and decisions, and file them as concise KB entries under $AO1_KB_PATH.
+#     and decisions, and file them as concise KB entries under $INTERN_KB_PATH.
 #     Skip anything already recorded.
 #   delivery: origin

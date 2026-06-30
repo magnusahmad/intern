@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build an Obsidian-style interactive graph of the AO1 KB.
+"""Build an Obsidian-style interactive graph of the Intern KB.
 
 Walks a knowledge-base directory for Markdown pages, extracts the [[wikilinks]]
 between them, and writes a self-contained ``kb-graph.html`` that renders a
@@ -12,7 +12,7 @@ Deterministic and re-runnable: regenerate the graph any time the KB changes.
 Usage:
     python3 build_kb_graph.py [KB_PATH] [-o OUTPUT_HTML]
 
-KB_PATH defaults to $AO1_KB_PATH, then the current directory.
+KB_PATH defaults to $INTERN_KB_PATH, then the current directory.
 """
 from __future__ import annotations
 
@@ -197,8 +197,8 @@ def render_html(nodes: list, links: list, brand: str) -> str:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Build an Obsidian-style KB graph.")
     parser.add_argument("kb_path", nargs="?",
-                        default=os.environ.get("AO1_KB_PATH", "."),
-                        help="KB directory (default: $AO1_KB_PATH or .)")
+                        default=os.environ.get("INTERN_KB_PATH", "."),
+                        help="KB directory (default: $INTERN_KB_PATH or .)")
     parser.add_argument("-o", "--output", default=None,
                         help="Output HTML path (default: <KB>/kb-graph.html)")
     args = parser.parse_args(argv)
