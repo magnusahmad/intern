@@ -13,17 +13,16 @@
 #   delivery: origin
 
 # ─────────────────────────────────────────────────────────────────
-# Planned: Capture → KB jobs (to be built)
+# Capture → KB
 # ─────────────────────────────────────────────────────────────────
-# The intended use of cron here is to keep the company brain current:
-# scheduled jobs that pull new messages (chat, email, meeting notes) into
-# raw captures, then summarize them into curated KB entries under $INTERN_KB_PATH.
+# Keeping the company brain current is a two-layer system:
+#   1. Real-time (primary): the `kb` skill, self-invoked per task per SOUL.md's
+#      capture mandate — durable facts are filed the moment they're learned.
+#   2. Backstop (this dir): `kb-backstop.cron` — a daily catch-up sweep that files
+#      anything real-time capture missed, so nothing durable is lost.
 #
-# Example sketch (disabled — fill in once the capture/summarize workflow exists):
-# capture-to-kb.cron
-#   schedule: "0 18 * * *"
-#   prompt: |
-#     Pull today's new messages into raw captures, summarize the durable facts
-#     and decisions, and file them as concise KB entries under $INTERN_KB_PATH.
-#     Skip anything already recorded.
-#   delivery: origin
+# Install the backstop with:
+#   hermes cron create --path cron/kb-backstop.cron
+#
+# Future capture jobs (chat/email/meeting-note ingestion into raw/ then curation)
+# can follow the same pattern as new sources come online.

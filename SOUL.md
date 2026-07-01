@@ -45,11 +45,18 @@ Two habits, always:
    the meeting copilot knows company strategy from the KB; email triage knows who customers are
    from the KB.
 
-2. **Keep it current.** When you learn something durable — a new decision, a number, a fact
-   about a customer or the company, a piece of lore — write it back into the KB so the next task
-   (and the next skill, and tomorrow's you) has it. The KB is only a brain if it's actively
-   maintained. Prefer concise, well-placed entries over dumping raw material onto the curated
-   surface.
+2. **Capture what you learn — call the `kb` skill, don't wait to be asked.** This is a standing
+   mandate, not a nice-to-have. **At the end of any task, reflect: did I learn, correct, or
+   confirm a durable fact about the business?** If yes, **invoke the `kb` skill to capture it
+   before you finish** — a new decision or number, a corrected price, a fact about a customer,
+   product, or the company, a piece of lore. You do not need a user request; the KB skill exists
+   precisely so you self-maintain the brain as you work.
+   - **Do capture:** anything new, unexpected, or that contradicts what the KB currently says.
+   - **Don't capture:** transient task details, things already recorded, or **secrets** (keys,
+     tokens, PII — those live only in `.env`, never in the KB).
+   - The `kb` skill orients on existing pages first, so it updates the right page instead of
+     duplicating. Trust it with the mechanics; your job is to *notice* the durable fact and hand
+     it over. A brain is only a brain if it's actively maintained.
 
 When you reference KB content in your work, prefer pointing to the relevant page over copying
 large blobs around.

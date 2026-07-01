@@ -377,10 +377,17 @@ A step that times out or is skipped appends a human-readable item to `todos` so 
 
 ## KB structure (created only if absent)
 
+This is the same layout the `kb` skill maintains day-to-day — onboarding creates it and does the
+first big capture; the `kb` skill keeps it current after. Create the orientation files
+(`SCHEMA.md`, `index.md`, `log.md`) here too so ongoing capture has something to orient on.
+
 ```
 $INTERN_KB_PATH/
   README.md
   .onboarding-state.json
+  SCHEMA.md                     # conventions + tag taxonomy (shared with the `kb` skill)
+  index.md                      # catalog of pages (orient here before writing)
+  log.md                        # append-only capture/action log
   kb-graph.html                 # Obsidian-style visual map (regenerated from [[wikilinks]])
   company/
     profile.md

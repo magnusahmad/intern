@@ -1,0 +1,20 @@
+# KB backstop sweep — safety net behind SOUL.md's real-time capture mandate.
+# Real-time capture (the `kb` skill, self-invoked per task) is primary; this daily
+# job catches anything that slipped through so the company brain stays complete.
+schedule: "0 18 * * *"
+prompt: |
+  Run a knowledge-base backstop sweep with the `kb` skill.
+
+  1. Orient: read SCHEMA.md, index.md, and the tail of log.md in the Intern KB.
+  2. Review today's activity — recent task outcomes, messages, meeting notes, and
+     anything under raw/ that hasn't been curated yet.
+  3. For each durable business fact, decision, correction, or new customer/product/
+     operations detail that is NOT already in the KB, capture it via the `kb` skill
+     (update the right existing page or create a concise, cross-linked new one, then
+     append to log.md).
+  4. Skip anything already recorded, transient task chatter, and secrets (keys/PII
+     never go in the KB).
+  5. Finish with a one-line summary of what you filed (or "nothing new to capture").
+
+  This is a catch-up pass, not a rewrite: merge, never clobber user-confirmed facts.
+delivery: origin

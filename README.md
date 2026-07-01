@@ -80,22 +80,26 @@ Intern is backed by a knowledge base (`$INTERN_KB_PATH`) — your company's pers
 source of truth. Onboarding bootstraps it: company profile, branding, legal entity, product
 catalogue and real prices (from your connected provider), hosting, and decisions. After that
 Intern **reads** it for context before any task and **writes** durable new facts back so it stays
-current on its own. Every skill draws on it — billing uses the price list, the meeting copilot
-uses company strategy, email triage uses customer context.
+current on its own — the `kb` skill is self-invoked whenever Intern learns or corrects something
+about the business (a standing mandate in `SOUL.md`), with a daily cron backstop catching anything
+missed. Every skill draws on it — billing uses the price list, the meeting copilot uses company
+strategy, email triage uses customer context.
 
 ## Skills
 
 | Skill | Description | Status |
 |-------|-------------|--------|
 | **onboarding** | First-run business setup — drives Phases 1–7 above; resumable via a state file | ✅ Available |
+| **kb** | Read, capture, and maintain the company brain — self-invoked whenever Intern learns a durable fact; orients before writing so it never duplicates | ✅ Available |
 | **stripe** | Stripe billing/storefront operations and purchase verification for support workflows | ✅ Available |
 | **google-meet** | Live meeting copilot — join/observe a Meet, transcribe captions, optionally speak, follow up | ✅ Available |
 | **customer-email-sorter** | Triage customer/support email with read-only mailbox handling and draft-only replies (not wired by v1 onboarding) | ✅ Available |
 
 ## Roadmap
 
-- **Capture → KB cron scripts** — scheduled jobs that pull messages (chat, email, meeting notes)
-  into raw captures and summarize them into curated KB entries. *(to be built)*
+- **Source-specific capture jobs** — real-time capture (the `kb` skill) and the daily backstop
+  sweep are in place; next is per-source ingestion (chat, email, meeting notes) into `raw/` for
+  the `kb` skill to curate.
 - **More connectors** — the onboarding connector registry already detects Shopify, WooCommerce,
   Paddle, Vercel, Netlify and more; wiring their credential recipes promotes them from detected to
   fully connected.
