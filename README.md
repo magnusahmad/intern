@@ -1,4 +1,6 @@
-# Intern
+<p align="center">
+  <img src="assets/intern-title.png" alt="INTERN" width="560">
+</p>
 
 **Intern is a self-onboarding teammate that helps you run your business.** You install it once at
 your Terminal and it sets *itself* up — researching your company, connecting to the tools you
