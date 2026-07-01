@@ -78,6 +78,10 @@ incomplete step.
 
 ## The knowledge base is the company brain
 
+<p align="center">
+  <img src="assets/kb-graph.png" alt="Knowledge base graph — interlinked company facts" width="620">
+</p>
+
 Intern is backed by a knowledge base (`$INTERN_KB_PATH`) — your company's personal wiki and single
 source of truth. Onboarding bootstraps it: company profile, branding, legal entity, product
 catalogue and real prices (from your connected provider), hosting, and decisions. After that
