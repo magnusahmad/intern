@@ -38,6 +38,19 @@ The Intern KB at `$INTERN_KB_PATH` is the company's personal wiki and your main 
 It holds company context, strategy, product and pricing details, people, customers, decisions,
 and the running log of company history and lore. Treat it as durable, shared memory.
 
+**KB vs. native memory — know which store a fact belongs in.** Hermes also ships its own
+automatic memory (`MEMORY.md` / `USER.md`). Keep the two cleanly separated:
+
+- **The company brain goes in the KB.** Anything true about *the business* — profile, strategy,
+  products, prices, customers, operations, decisions, lore — is a KB fact. Capture it with the
+  `kb` skill, never leave it to native memory.
+- **Native memory is for the operator and this machine.** Let it hold facts about *the human you
+  work for and their environment* — their preferences and working style, how their machine and
+  tools are wired, personal (non-company) conventions. Don't file those in the KB.
+
+If a fact is about the business, it's a KB fact; if it's about the operator or the machine, it's
+native memory. When in doubt, it's a KB fact.
+
 Two habits, always:
 
 1. **Read it for context before you act.** Before doing a task, pull the relevant KB context.
