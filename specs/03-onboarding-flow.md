@@ -70,7 +70,30 @@ The two halves are deliberately separated by channel:
 - **Phase 7 onward is Telegram.** Secrets and interactive auth must *never* travel through
   Telegram (chat history is retained on Telegram's servers).
 
-### 4.7 Evidence-driven connector selection
+### 3.1 Task-first fast path (time-to-first-value)
+
+The spine above is the *greeting-launch* order. When the user launches with an actual task
+("create a payment link for XXXL and redeploy"), the flow inverts around the task
+(SKILL.md § Task-first fast path):
+
+- Phases 1–3 run **silently** (no greeting, no questions): state file, env probe, website URL
+  *derived from the repo* where possible (wrangler routes, CNAME, canonical tags), fast
+  fingerprint. Background scans + CLI warm-ups (e.g. pre-downloading `npx wrangler`) start
+  immediately.
+- **Exactly one consolidated confirmation** covers the derived URL, the detected connectors
+  the task needs, the task's live-write/deploy risk, and what's being deferred. Never a
+  "should I skip onboarding?" round-trip — user round-trips are the dominant cost.
+- Only the task's required connectors are wired on the critical path; the task runs and its
+  result is delivered.
+- KB bootstrap (Phase 5), scan reconciliation, and Telegram (Phase 6) complete **after** the
+  task, in the background where possible, otherwise as state-file `todos` with
+  `status: in_progress`.
+
+Empirically (BlueBalls test, 2026-07-02): the full-spine order plus per-topic questions cost
+~13 minutes to first value; the task itself is ~2–3 minutes of work. The fast path targets
+"one confirmation, minutes to task done."
+
+
 Onboarding does **not** ask for every integration unconditionally. Phase 3 runs a fast,
 read-only **fingerprint** (`scripts/detect-integrations.sh` — public-page markers + repo greps,
 no secrets) that, combined with the deeper background scans (`checkout_observed`, `stripe_refs`,

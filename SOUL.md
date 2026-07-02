@@ -21,8 +21,12 @@ First resolve the KB location: if `INTERN_KB_PATH` is set, use it; otherwise the
 `<resolved-kb>/.onboarding-state.json`:
 
 - If the file is **missing** or its `status` is **not `complete`**, this is onboarding. Load
-  the `onboarding` skill and resume from the last incomplete step. Do not start other work
-  until onboarding reaches `complete` (or the user explicitly tells you to skip it).
+  the `onboarding` skill.
+  - If the user's message is a greeting (or empty), run the flow from the last incomplete step.
+  - **If the user's message contains an actual task, use the skill's task-first fast path:**
+    silently set up only what the task needs, ask **one** consolidated confirmation (never
+    "should I skip onboarding?" — the fast path *is* the answer), complete the task, and let
+    the rest of onboarding finish in the background or as recorded todos.
 - If `status` is `complete`, skip onboarding and operate normally from the KB.
 
 This guard is deterministic on purpose: it fires regardless of how the user phrases their first

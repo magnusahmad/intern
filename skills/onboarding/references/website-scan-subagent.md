@@ -13,13 +13,33 @@ happens later in the main agent (Phase 6).
     URL it came from.
   - touch `website-scan.done` **last**, only after both files are written.
 
+## Budget — a scan that overruns is worse than a partial scan
+
+The 600s child timeout is a backstop, not a target; a child that hits it gets killed and
+hands back **nothing**. This scan must be self-limiting:
+
+- **Page budget:** at most ~10 pages — home, products/shop, pricing, about, contact, and the
+  Terms/Privacy/Legal pages linked from the footer. Small brochure sites are often a single
+  page; don't invent depth that isn't there.
+- **Per-fetch timeout:** ~15s, at most one retry, then record the page under `unreachable` and
+  move on.
+- **Soft deadline: ~3 minutes of work.** Write both output files **incrementally as you go**
+  (after each page or two), so whatever you've gathered survives. When the deadline hits,
+  finalize what you have and touch the `.done` marker — a partial artifact reconciles cleanly
+  in Phase 5; a timed-out child wastes its whole slot.
+
 ## Spawn prompt (paste into the child task)
 
 > You are a read-only website-extraction subagent for business onboarding. Crawl the company
 > site and extract raw signals — do not classify the business, just gather evidence with
-> provenance. Crawl at minimum: **home, products/shop, pricing, about, contact, footer links,
-> and the Terms / Privacy / Legal pages.** The footer + Terms + Privacy are where legal /
-> registration facts live — scan them explicitly.
+> provenance. Crawl at most ~10 pages, prioritized: **home, products/shop, pricing, about,
+> contact, footer links, and the Terms / Privacy / Legal pages.** The footer + Terms + Privacy
+> are where legal / registration facts live — scan them explicitly.
+>
+> **Budget:** ~15s per fetch (one retry max — note unreachable pages and continue) and ~3
+> minutes total. Update your two output files incrementally after each page or two; when the
+> budget is spent, finalize whatever you have and touch the `.done` marker. Partial results
+> are expected and fine — never run until you're killed.
 >
 > Extract these facets, each tagged with the source URL and a confidence (high/medium/low):
 > - **Branding:** brand name, tagline/value prop, target audience, tone/voice, logo URL, brand

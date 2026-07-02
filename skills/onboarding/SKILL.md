@@ -1,6 +1,6 @@
 ---
 name: onboarding
-description: First-run business setup for the intern profile. Drives a non-technical owner from a fresh install to "I run my business through Telegram" — probing tooling, fingerprinting the company website + repo to detect which services it actually uses, then wiring only those credentials locally (Stripe, Cloudflare, … via an extensible connector registry) plus Telegram, and bootstrapping the KB as the company brain. Resumable and idempotent via a single state file.
+description: First-run business setup for the intern profile. Drives a non-technical owner from a fresh install to "I run my business through Telegram" — probing tooling, fingerprinting the company website + repo to detect which services it actually uses, then wiring only those credentials locally (Stripe, Cloudflare, … via an extensible connector registry) plus Telegram, and bootstrapping the KB as the company brain. When the user launches with a task, a task-first fast path connects only what the task needs (one consolidated confirmation) and defers the rest to the background. Resumable and idempotent via a single state file.
 version: 1.0.0
 author: Hermes Agent
 license: MIT
@@ -37,6 +37,40 @@ Load this skill when **any** of these is true:
 If the state file exists and is `complete`, do **not** re-run onboarding. Operate normally
 from the KB instead.
 
+**If the user's message contains an actual task** (not just a greeting), do not run the full
+flow front-to-back — use the **Task-first fast path** below. Time-to-first-value is the metric
+that matters: the user should see their task done in minutes, with onboarding completing
+quietly around it.
+
+## Task-first fast path (launched with a task)
+
+When onboarding is incomplete and the user has already given you a task, **never ask "should I
+skip onboarding?"** — the answer is always the same: run the minimal path that unblocks the
+task, and finish the rest in the background or as `todos`.
+
+1. **Set up silently — no user turn, no walls of output.** Run Phase 1 (resolve KB + state
+   file) and Phase 2 (env probe), derive the website URL from the repo if possible (see
+   Phase 3), and run the fast fingerprint probe. Target well under a minute, one short status
+   line per phase. Skip the Phase 1 greeting — the task is the greeting.
+2. **Map the task to its required connectors.** E.g. "create a payment link and redeploy the
+   site" → Stripe (write) + Cloudflare (deploy). Only those connectors' secrets and probes are
+   on the critical path; everything else is deferrable.
+3. **Ask exactly one consolidated question** covering everything that gates the task: the
+   proposed website URL (if derived), the detected connectors to confirm, any risk callout the
+   task implies (live payment-provider write, production deploy), and a one-line note of what
+   you're deferring (Telegram, deep-scan synthesis, KB pages). One question — not one per
+   topic.
+4. **On confirmation:** kick off background scans and CLI warm-ups (see Phase 4), connect only
+   the required connectors, **do the task**, and deliver its result.
+5. **Then** finish the deferred onboarding work — KB bootstrap (Phase 5), scan reconciliation,
+   Telegram (Phase 6) — in the background where possible; otherwise record each skipped phase
+   with `scripts/state.sh todo` and keep `status: in_progress` so a later run completes it.
+
+The task itself runs under **normal operating rules** (SOUL.md: confirm irreversible or
+outward-facing actions), not under onboarding's read-only rule — that rule governs
+onboarding's own probes, and the consolidated question above is where the task's live-write
+risk gets confirmed. For payment-link work specifically, use the `stripe` skill.
+
 ## Golden rules (read before every phase)
 
 1. **Idempotent + resumable.** `$INTERN_KB_PATH/.onboarding-state.json` (§schema below) is the
@@ -56,6 +90,19 @@ from the KB instead.
    scan isn't done at reconcile time, record a `todo` and finish onboarding anyway.
 6. **Don't silent-install.** Offer copy-paste `!brew install …` commands the user runs
    in-session; never install tooling yourself.
+7. **One consolidated question per gate.** A user round-trip is the single biggest cost in
+   time-to-first-value. Never ask for something derivable (the website URL is usually in the
+   repo) or already decided (the first-run guard's own routing). Batch confirmations that
+   land within a turn or two of each other into one question.
+8. **Agent tooling never touches the company repo.** Probe/bootstrap/verify helper scripts
+   live in this skill's `scripts/` or under `$TMPDIR` — never written into the company repo
+   (they'd violate read-only and need cleanup later).
+9. **Verify once, then stop.** One focused verification pass per change. Don't rewrite a
+   near-identical verifier or re-check what just passed.
+10. **Keep the screen quiet.** The user should see questions, diffs to files the business owns
+    (site source, KB pages), and results. State-file updates, probes, and internal tooling get
+    one status line each — use `scripts/state.sh` for state mutations instead of ad-hoc python
+    heredocs, and never surface the source or diff of your own throwaway scripts.
 
 ## Secret entry (Phases 4 & 6) — you run the scripts, the value never reaches you
 
@@ -95,6 +142,13 @@ golden rule 2 — you must still never invoke them off the local Terminal).
 2. Read `$INTERN_KB_PATH/.onboarding-state.json`. If absent, create it with `status:
    "in_progress"`, `started_at` = now, `machine: "macos"`, `model_provider` = whatever the
    user configured (default `openrouter`), and all steps `done: false` (use the schema below).
+   For every later mutation use the bundled helper — one quiet line, no heredocs:
+
+   ```bash
+   scripts/state.sh "$INTERN_KB_PATH/.onboarding-state.json" set steps.env_probe.done true \
+     steps.env_probe.notes '"gh present; stripe missing (deferred)"'
+   scripts/state.sh "$INTERN_KB_PATH/.onboarding-state.json" todo "Re-run website scan"
+   ```
 3. Greet the user in plain, non-technical language. Explain in 3–4 sentences what you're about
    to do: check their tools, read their website and repo, connect Stripe and Cloudflare, and
    set up Telegram so they can run the business from their phone. Tell them setup happens here
@@ -131,18 +185,31 @@ once `gh` is present. A deferred CLI being absent does not hold up this phase.
 
 ## Phase 3 — Company inputs + launch background scans
 
-Ask, in plain language, for:
+**Derive before you ask.** If a company repo is at hand (the launch directory or a path the
+user gave), try to derive the website URL from it first: `wrangler.jsonc`/`wrangler.toml`
+routes, a `CNAME` file, `package.json` `homepage`, or canonical/`og:url` tags in the site
+source. If you find one, **propose it for confirmation folded into the Phase 4 connector
+question** — one question, not two. Only stop and ask when nothing is derivable.
 
-1. **Company website URL** (required).
-2. **Company repo directory** (optional). If given, verify it's a git repo
-   (`git -C <path> rev-parse --is-inside-work-tree`); record the path either way.
+The inputs to record (asking only for what you couldn't derive):
+
+1. **Company website URL** (required — derived or asked).
+2. **Company repo directory** (optional; default to the launch directory when it is one). If
+   given, verify it's a git repo (`git -C <path> rev-parse --is-inside-work-tree`); record the
+   path either way.
 3. Any extra docs or URLs they want you to read (optional).
 
 Write these into `inputs` in the state file. Then **immediately spawn two background
 subagents** — one for the website, one for the repo (skip the repo one if no repo was given) —
 using the prompts in `references/website-scan-subagent.md` and
 `references/repo-scan-subagent.md`. These are read-only extraction agents that write their
-findings to files under `raw/onboarding/` and touch a `.done` marker when finished.
+findings to files under `raw/onboarding/` and touch a `.done` marker when finished. Both are
+**budgeted, self-limiting scans** (page caps, per-fetch timeouts, a soft deadline well inside
+the child timeout, incremental writes) — a subagent that burns its whole 600s slot and writes
+nothing is worse than a partial artifact; see the reference files. For repo-only onboarding
+scans or manual repo-scan handoffs, follow `references/repo-onboarding-scan-artifacts.md`:
+write both `repo-scan.md` and `repo-signals.json`, create `repo-scan.done` only after both are
+present, and run focused ad-hoc artifact verification when no canonical suite applies.
 
 Set `website_scan.background: true` / `repo_scan.background: true` with their `result_path`s.
 Then tell the user: *"I'm reading your website and repo in the background while we keep setting
@@ -189,10 +256,18 @@ exception — it always runs, in Phase 6.
 2. **For each confirmed connector, run its recipe** from `references/connectors.md`:
    - **Tooling check:** if the recipe needs a CLI (`stripe`, `wrangler`) that Phase 2 found
      missing, offer the copy-paste `!brew install …` now — only now is it known to be needed.
+   - **Warm up deploy tooling in the background.** If Cloudflare is confirmed, the repo deploys
+     via `npx`/`npm exec wrangler`, and the CLI is missing, start
+     `npm exec --yes wrangler --version` in the background *now* so a later deploy doesn't pay
+     the ~60–90s cold download (and stumble through failed attempts first). Same idea for any
+     other confirmed connector whose CLI a foreseeable task will need.
    - **Secret(s):** obtain via the secret scripts (see "Secret entry" above) — discovery first,
      hidden-input dialog fallback. Never echo, never pass as an argument, refuse on Telegram.
    - **Read-only probe:** run the recipe's probe (e.g. Stripe products/prices/links;
-     `wrangler` deploy-target detection). **No writes, no deploys.**
+     `wrangler` deploy-target detection). **No writes, no deploys.** Write the raw probe output
+     to `raw/onboarding/<id>-probe.json` (e.g. `stripe-probe.json`) and **reuse that cache** for
+     any follow-on work in the session — don't re-enumerate the account (the classic waste:
+     re-listing 100 payment links with per-link line-item calls the probe already made).
    - **KB pages:** write the recipe's curated pages (Stripe → `operations/stripe.md`,
      `products/catalog.md`, `company/payments.md`; Cloudflare → `operations/hosting.md`,
      including the site↔payment-link relationship). Never paste live IDs/emails into anything
@@ -208,6 +283,10 @@ deploys. To add support for a new platform later, add a row to `references/conne
 phase needs no change.
 
 ## Phase 5 — KB bootstrap + reconcile scans
+
+**In the task-first fast path this phase runs *after* the task result is delivered** (or as a
+background subagent) — the task needs connectors, not KB pages, so synthesis must never sit
+between connector confirmation and the task.
 
 1. **Create the KB structure** (§KB structure below) **only if absent.** Never overwrite an
    existing page.
@@ -427,5 +506,30 @@ Curated pages stay concise; raw scan output stays under `raw/onboarding/`.
 - Don't block onboarding on a slow scan; queue a `todo` and move on.
 - Don't paste live Stripe IDs / customer emails / payment IDs into anything shareable.
 - If `$INTERN_KB_PATH` doesn't exist at Phase 1, create the KB dir first, then the state file.
+- **Never ask "should I skip onboarding?"** when the user launched with a task — the first-run
+  guard already routed you here and the Task-first fast path defines the answer. That question
+  is a wasted round-trip with a known answer.
+- If the user explicitly skips a remaining onboarding phase (for example the Telegram handoff)
+  to complete an urgent operational task, record the skipped phase in `.onboarding-state.json`
+  with a `todo`, keep `status: in_progress`, and proceed. The first-run guard allows other work
+  after an explicit skip; do not keep blocking on onboarding — and when the task arrived at
+  launch, don't even ask (see "Task-first fast path").
+- If Stripe is confirmed and the Stripe CLI is missing, a successful direct REST probe is
+  enough; use `references/stripe-rest-probe.md` and do not stall onboarding just to install
+  the CLI.
+- Onboarding is read-only for Stripe. For live post-onboarding Payment Link work, use the
+  `stripe` skill rather than extending onboarding into write operations.
+- Fast detector hits for Shopify/WooCommerce/etc. can come from old docs, migration specs, or
+  env-var references. Treat them as proposals only; after user confirmation, mark declined
+  detections explicitly rather than queuing them as work.
+- Secret discovery can find values in sibling project `.env` files. That's useful for reusable
+  service keys, but for fresh channel setup (especially the Telegram bot token) verify that the
+  discovered token belongs to this business/profile before treating Telegram as complete.
+- Don't hand-write python heredocs to mutate `.onboarding-state.json` — that's what
+  `scripts/state.sh` is for (golden rule 10).
+- Don't write helper/probe/verifier scripts into the company repo (golden rule 8) — you'll have
+  to clean them up and then verify the cleanup, which is waste stacked on waste.
+- One verification pass per change (golden rule 9). Re-running a rewritten-but-equivalent
+  verifier adds minutes and screen noise, not confidence.
 - The gateway can't restart itself — Phase 6 needs the user (or you) to run
   `hermes gateway restart`.

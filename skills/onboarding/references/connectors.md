@@ -48,7 +48,11 @@ dependent. Everything else is opt-in by evidence.
   --alias STRIPE_API_KEY --root <company_repo_path>`, else `enter-secret.sh` (recommend a
   **restricted/read-only** key).
 - **probe:** read-only products, prices, payment links, recent checkout sessions
-  (`stripe` skill patterns, `-u "$STRIPE_SECRET_KEY:"`). Record `livemode`.
+  (`stripe` skill patterns, `-u "$STRIPE_SECRET_KEY:"`; no CLI needed — see
+  `references/stripe-rest-probe.md`). Record `livemode`. Cache the raw output at
+  `raw/onboarding/stripe-probe.json` and **reuse it for follow-on tasks in the session**
+  instead of re-enumerating the account (re-listing all payment links with per-link
+  line-item calls is the classic double-spend).
 - **kb_pages:** `operations/stripe.md`, `products/catalog.md`, `company/payments.md`.
 
 ### cloudflare — `hosting` — **wired**
@@ -58,6 +62,9 @@ dependent. Everything else is opt-in by evidence.
   secret scripts for non-interactive.
 - **probe:** detect deploy target (`wrangler.toml`, else `wrangler pages project list` /
   `wrangler deployments list`); **do not deploy**.
+- **warm-up:** if the repo deploys via `npx`/`npm exec wrangler` and no wrangler is installed,
+  kick off `npm exec --yes wrangler --version` in the background at confirmation time — it
+  pre-downloads the CLI so the first real deploy doesn't stall ~60–90s (or fail cold).
 - **kb_pages:** `operations/hosting.md` (deploy target + site↔Stripe relationship).
 
 ### telegram — `channel` — **wired** — `detect: always`
