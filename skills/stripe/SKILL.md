@@ -148,6 +148,12 @@ If a recreation call fails with `400`, retry with the minimal required creation 
 
 Update the active repo's checkout URL references. Then verify the deployed or local page no longer contains the old URL and does contain the new one.
 
+**Verification is one check, not a suite.** A single `curl` of the live page confirming the new
+payment-link URL is present (and the old one absent, when replacing) is sufficient evidence —
+done. Do not write throwaway verifier scripts, poll in sleep loops, re-parse the DOM, or
+re-check the same fact across multiple URLs; if the page isn't live yet, one short retry after
+the deploy finishes is the cap.
+
 ### 5. Deactivate the old object
 
 ```bash

@@ -63,9 +63,14 @@ task, and finish the rest in the background or as `todos`.
    topic.
 4. **On confirmation:** kick off background scans and CLI warm-ups (see Phase 4), connect only
    the required connectors, **do the task**, and deliver its result.
-5. **Then** finish the deferred onboarding work — KB bootstrap (Phase 5), scan reconciliation,
-   Telegram (Phase 6) — in the background where possible; otherwise record each skipped phase
-   with `scripts/state.sh todo` and keep `status: in_progress` so a later run completes it.
+5. **Then — in the same turn you deliver the task result, before ending it** — dispatch the
+   deferred onboarding work as a background child: call the `delegate_task` tool with
+   `background: true` and a task prompt that runs Phase 5 end-to-end (KB bootstrap + scan
+   reconciliation; Telegram stays a `todo`). The child writes KB files and `.done` markers, so
+   its work survives your turn ending. Recording a `todo` instead of dispatching is a
+   **fallback only** — permitted solely when `delegate_task` is unavailable or errors, and the
+   todo must say which it was. Ending the run with `kb.done: false` and no dispatched child is
+   a failed fast path, not a fast one.
 
 The task itself runs under **normal operating rules** (SOUL.md: confirm irreversible or
 outward-facing actions), not under onboarding's read-only rule — that rule governs
@@ -207,8 +212,10 @@ The inputs to record (asking only for what you couldn't derive):
 
 Write these into `inputs` in the state file. Then **immediately spawn two background
 subagents** — one for the website, one for the repo (skip the repo one if no repo was given) —
+by calling the `delegate_task` tool with `background: true` (one entry in `tasks` per scan),
 using the prompts in `references/website-scan-subagent.md` and
-`references/repo-scan-subagent.md`. These are read-only extraction agents that write their
+`references/repo-scan-subagent.md`. "Spawn a subagent" always means a `delegate_task` call —
+never a shell trick like `nohup`/`&`, and never a silent downgrade to a `todo`. These are read-only extraction agents that write their
 findings to files under `raw/onboarding/` and touch a `.done` marker when finished. Both are
 **budgeted, self-limiting scans** (page caps, per-fetch timeouts, a soft deadline well inside
 the child timeout, incremental writes) — a subagent that burns its whole 600s slot and writes
@@ -318,9 +325,12 @@ change either way.
 
 ## Phase 5 — KB bootstrap + reconcile scans
 
-**In the task-first fast path this phase runs *after* the task result is delivered** (or as a
-background subagent) — the task needs connectors, not KB pages, so synthesis must never sit
-between connector confirmation and the task.
+**In the task-first fast path this phase runs *after* the task result is delivered** — as a
+background child dispatched via `delegate_task` with `background: true` — the task needs
+connectors, not KB pages, so synthesis must never sit between connector confirmation and the
+task. If any later user turn reveals this phase is still not done (e.g. they ask whether the
+KB exists), don't just report status: dispatch it (or run it inline if delegation is
+unavailable) in that same turn.
 
 1. **Create the KB structure** (§KB structure below) **only if absent.** Never overwrite an
    existing page.
