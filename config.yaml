@@ -155,6 +155,17 @@ memory:
   memory_char_limit: 2200
   user_char_limit: 1375
 
+# Shell hooks — deterministic backstops at harness boundaries (see hooks/).
+# pre_verify fires when the agent edited files and is about to finish; the
+# onboarding backstop keeps the turn alive until the Phase 5 KB bootstrap is
+# dispatched. hooks_auto_accept lets registration pass the first-use consent
+# gate in non-TTY sessions (gateway, cron).
+hooks_auto_accept: true
+hooks:
+  pre_verify:
+    - command: "~/.hermes/profiles/intern/hooks/onboarding-kb-backstop.py"
+      timeout: 10
+
 # Subagent delegation (generic Hermes feature). Tune or disable as needed.
 delegation:
   inherit_mcp_toolsets: true

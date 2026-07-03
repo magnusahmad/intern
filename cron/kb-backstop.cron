@@ -5,6 +5,10 @@ schedule: "0 18 * * *"
 prompt: |
   Run a knowledge-base backstop sweep with the `kb` skill.
 
+  0. Bootstrap check: if the KB has never been created (no SCHEMA.md/index.md at
+     the KB path, or .onboarding-state.json is missing or has steps.kb.done false),
+     load the `onboarding` skill and run its Phase 5 KB bootstrap first — structure
+     plus synthesis from the state file and any raw/ artifacts — then continue below.
   1. Orient: read SCHEMA.md, index.md, and the tail of log.md in the Intern KB.
   2. Review today's activity — recent task outcomes, messages, meeting notes, and
      anything under raw/ that hasn't been curated yet.
