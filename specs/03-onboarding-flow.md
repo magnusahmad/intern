@@ -104,6 +104,15 @@ Stripe key; a business on Shopify/WooCommerce is acknowledged and queued (stub) 
 (once wired). Adding a new platform is a registry row, not a flow change. Telegram is the one
 non-evidence connector — it always runs (it's the handoff channel).
 
+The registry is an **accelerator, not a whitelist**: no vendor (including Stripe/Cloudflare)
+is ever required, and a confirmed service without a registry row is still connected via a
+generic discover→tooling→auth recipe (check for a profile skill, else the vendor CLI, else its
+REST API with a least-privilege token; read-only probe; `operations/<service>.md`; recorded as
+`status: "adhoc"`). The agent's Phase 4 job is open-ended: find what the company actually runs
+on — fingerprint markers, scan signals, plus its own inspection of headers/deps/embeds — rank
+by what matters to the user (money path first; analytics pixels get recorded, not authed), and
+auth the confirmed set.
+
 ---
 
 ## 4. Architecture decisions (the hardening)

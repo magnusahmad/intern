@@ -6,6 +6,12 @@ with the user, and then connects **only** the confirmed set. This file is the re
 drives that loop (SKILL.md Phase 4). Adding a new service = adding a row here, not editing the
 flow.
 
+**The registry is an accelerator, not a whitelist.** No row here — including Stripe and
+Cloudflare — is mandatory, and a confirmed service *without* a row still gets connected, via
+the generic recipe at the bottom of this file. The agent's actual job is: find the services
+this company runs on, work out how to talk to each (profile skill → vendor CLI → REST API),
+figure out with the user which ones matter, and auth those.
+
 ## How the loop uses this
 
 1. **Detect** — `scripts/detect-integrations.sh URL [--repo PATH]` does a fast public-page +
@@ -116,3 +122,36 @@ and append a `todo`. Promote a stub to **wired** by filling in its `secrets`/`pr
 ### calendly — `scheduling` — **stub**
 - **detect:** `calendly.com` embed on the site.
 - **secrets (when wired):** Calendly personal access token; read-only event-types probe.
+
+---
+
+## Generic recipe — confirmed services with no registry row
+
+Discovery will regularly surface services this file has never heard of. That is not a gap in
+onboarding — it's the normal case the registry only accelerates. For any service the user
+confirms matters, connect it like this:
+
+1. **Check the profile first.** If a profile skill exists for the service (e.g. `stripe`), it
+   already documents the preferred CLI/API patterns and safety rules — follow it.
+2. **Find the official tooling.** Look for a vendor CLI (`brew info <name>`, `npm view
+   <name>`, the vendor's developer docs). No CLI is fine — most services expose a REST API
+   with token auth; prefer whatever the vendor documents for automation. Offer the copy-paste
+   install line if a CLI exists and is missing (never silent-install).
+3. **Least privilege.** Where the vendor supports scoped/restricted/read-only tokens,
+   recommend one and say which scopes are needed.
+4. **Secret entry** via the standard scripts (`discover-secret.sh` first, `enter-secret.sh`
+   fallback) into a sensibly named env var — the vendor's conventional name if it has one,
+   else `<SERVICE>_API_KEY`. Same invariants: never echoed, never over Telegram.
+5. **Read-only probe:** the cheapest authenticated GET that proves the credential works
+   (account/whoami, or a list of one resource). Cache the output at
+   `raw/onboarding/<id>-probe.json` like any registry connector.
+6. **KB page:** `operations/<service>.md` — what the service does for this business, how it's
+   wired, where the credential lives (name and location only, never the value).
+7. **State:** record it under `connectors.<id>` with `status: "adhoc"` so later runs know it's
+   wired without a registry row. If the same service keeps showing up across businesses,
+   promote it to a real row above.
+
+Triage before you auth: services on the money path (payments, sales channel, hosting, the
+support inbox) are worth connecting; low-stakes detections (analytics pixels, font CDNs, chat
+widgets) get a KB mention and no credentials — don't collect keys the user gets no leverage
+from.

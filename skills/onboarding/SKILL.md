@@ -1,6 +1,6 @@
 ---
 name: onboarding
-description: First-run business setup for the intern profile. Drives a non-technical owner from a fresh install to "I run my business through Telegram" — probing tooling, fingerprinting the company website + repo to detect which services it actually uses, then wiring only those credentials locally (Stripe, Cloudflare, … via an extensible connector registry) plus Telegram, and bootstrapping the KB as the company brain. When the user launches with a task, a task-first fast path connects only what the task needs (one consolidated confirmation) and defers the rest to the background. Resumable and idempotent via a single state file.
+description: First-run business setup for the intern profile. Drives a non-technical owner from a fresh install to "I run my business through Telegram" — probing tooling, fingerprinting the company website + repo to detect which services it actually uses, then wiring only those credentials locally — via a connector registry for common services (Stripe, Cloudflare, …) plus a generic discover→CLI→auth recipe for anything else — plus Telegram, and bootstrapping the KB as the company brain. No specific vendor is ever required. When the user launches with a task, a task-first fast path connects only what the task needs (one consolidated confirmation) and defers the rest to the background. Resumable and idempotent via a single state file.
 version: 1.0.0
 author: Hermes Agent
 license: MIT
@@ -53,8 +53,9 @@ task, and finish the rest in the background or as `todos`.
    Phase 3), and run the fast fingerprint probe. Target well under a minute, one short status
    line per phase. Skip the Phase 1 greeting — the task is the greeting.
 2. **Map the task to its required connectors.** E.g. "create a payment link and redeploy the
-   site" → Stripe (write) + Cloudflare (deploy). Only those connectors' secrets and probes are
-   on the critical path; everything else is deferrable.
+   site" → whatever payment provider and host *this business* actually uses (Stripe + Cloudflare
+   for one company; something else entirely for another — the fingerprint tells you). Only those
+   connectors' secrets and probes are on the critical path; everything else is deferrable.
 3. **Ask exactly one consolidated question** covering everything that gates the task: the
    proposed website URL (if derived), the detected connectors to confirm, any risk callout the
    task implies (live payment-provider write, production deploy), and a one-line note of what
@@ -150,9 +151,11 @@ golden rule 2 — you must still never invoke them off the local Terminal).
    scripts/state.sh "$INTERN_KB_PATH/.onboarding-state.json" todo "Re-run website scan"
    ```
 3. Greet the user in plain, non-technical language. Explain in 3–4 sentences what you're about
-   to do: check their tools, read their website and repo, connect Stripe and Cloudflare, and
-   set up Telegram so they can run the business from their phone. Tell them setup happens here
-   at the Terminal because it involves passwords, and that day-to-day will happen on Telegram.
+   to do: check their tools, read their website and repo, find and connect the services their
+   business actually runs on (payments, hosting, and the like — whatever the scans turn up),
+   and set up Telegram so they can run the business from their phone. Don't name specific
+   vendors you haven't detected yet. Tell them setup happens here at the Terminal because it
+   involves passwords, and that day-to-day will happen on Telegram.
 
 If resuming (`status: in_progress` with some steps done), say so briefly and jump to the first
 incomplete step instead of re-greeting from scratch.
@@ -179,6 +182,9 @@ Notes:
   `git push`/SSH (see Safety).
 - Note the present/missing result for `stripe`/`wrangler` so Phase 4 can offer the install line
   exactly when a connector that needs one is confirmed — don't block here on a missing one.
+- `stripe`/`wrangler` are just the pre-bundled examples. Whatever service Phase 4 actually
+  confirms, its CLI gets the same treatment on demand: check, offer the install line, never
+  silent-install.
 
 Mark `env_probe.done: true` with a `notes` summary (e.g. `"gh present; stripe missing (deferred)"`)
 once `gh` is present. A deferred CLI being absent does not hold up this phase.
@@ -234,26 +240,41 @@ actually uses. Write that list into `detected_integrations` in the state file. P
 **only** what's detected (plus anything the user adds), so a non-Stripe business is never asked
 for a Stripe key. See `references/connectors.md` for the registry that drives this.
 
-## Phase 4 — Connect detected services (registry-driven, read-only)
+## Phase 4 — Discover + connect the services the business actually uses (read-only)
 
-This phase replaces the old fixed "ask for Stripe, then Cloudflare" steps. It connects **only
-the services the business actually uses**, driven by `references/connectors.md`. Telegram is the
-exception — it always runs, in Phase 6.
+Your job here is open-ended discovery, not a checklist: **find the services this company runs
+on, work out how to talk to each one (CLI or API), figure out with the user which ones matter,
+and auth those.** `references/connectors.md` holds ready-made recipes for common services
+(Stripe, Cloudflare, …) — those rows are **accelerators, not a whitelist, and none of them is
+mandatory**. A business with no Stripe and no Cloudflare is a perfectly normal outcome; never
+nudge the user toward a service the evidence doesn't support. Telegram is the exception — it
+always runs, in Phase 6.
 
-1. **Detect → confirm.** Take `detected_integrations` (from the Phase 3 fingerprint) and union
-   it with anything the deep scans have already surfaced if they've finished
-   (`checkout_observed`, `stripe_refs`, `hosting`, `expected_env_vars`). Show the user the
-   detected set in **plain language**, naming the evidence, e.g.:
+1. **Discover.** Union three evidence sources: the Phase 3 fingerprint (its marker list is
+   *not* exhaustive), whatever the deep scans have surfaced so far (`checkout_observed`,
+   `stripe_refs`, `hosting`, `expected_env_vars`), and **your own inspection** — response
+   headers, script tags and embeds, SDK dependencies, env-var names in the repo, links and
+   badges in the site footer, OAuth callback routes. Anything the business plausibly operates
+   through belongs on the candidate list, registry row or not.
+
+2. **Confirm + prioritize.** Show the user the candidate set in **plain language**, naming the
+   evidence, e.g.:
    > I found **Stripe** — there's a payment link on your pricing page — and your site is hosted
    > on **Cloudflare**. I didn't see Shopify, WooCommerce, or other tools. Want me to connect
    > those two? Anything I should add?
 
-   Evidence **proposes**; the user **decides**. Add anything they name even without evidence;
-   drop anything they say they don't use. Record each as `detected`/`confirmed` in the state.
-   **Never ask for a service that's neither detected nor user-confirmed** — that's the whole
-   point (no unconditional Stripe key prompt).
+   Evidence **proposes**; the user **decides** — and importance drives the order: services on
+   the money path (payments, the sales channel, hosting) come first; low-stakes detections
+   (analytics pixels, font CDNs, chat widgets) get recorded in the KB, not authed — don't
+   collect credentials the user gets no leverage from. Add anything they name even without
+   evidence; drop anything they say they don't use. Record each as `detected`/`confirmed` in
+   the state. **Never ask for a service that's neither detected nor user-confirmed** — that's
+   the whole point (no unconditional Stripe key prompt).
 
-2. **For each confirmed connector, run its recipe** from `references/connectors.md`:
+3. **For each confirmed service, connect it** — via its registry recipe when
+   `references/connectors.md` has a row, otherwise via the **generic recipe** in the same file:
+   check whether the profile already ships a skill for it (e.g. `stripe`), else find the
+   vendor's official CLI, else use its REST API with a least-privilege token. Either way:
    - **Tooling check:** if the recipe needs a CLI (`stripe`, `wrangler`) that Phase 2 found
      missing, offer the copy-paste `!brew install …` now — only now is it known to be needed.
    - **Warm up deploy tooling in the background.** If Cloudflare is confirmed, the repo deploys
@@ -274,13 +295,16 @@ exception — it always runs, in Phase 6.
      shareable — KB only.
    - Mark `connectors.<id>.done: true` with a short `notes`.
 
-3. **Stub connectors** (`status: stub` in the registry — Shopify, WooCommerce, Paddle, etc.):
+4. **Stub connectors** (`status: stub` in the registry — Shopify, WooCommerce, Paddle, etc.):
    acknowledge them, point the user at where that platform mints its API credential, and append
-   a `todo` to wire it later. Don't block onboarding on a stub.
+   a `todo` to wire it later. Don't block onboarding on a stub. (A stub row is a head start on
+   detection markers — if the user confirms one matters now, the generic recipe can still wire
+   it today.)
 
 Onboarding stays **read-only** on every connector — auth + probe + record, no live writes or
-deploys. To add support for a new platform later, add a row to `references/connectors.md`; this
-phase needs no change.
+deploys. A service that recurs across businesses earns a registry row in
+`references/connectors.md`; until then the generic recipe covers it — this phase needs no
+change either way.
 
 ## Phase 5 — KB bootstrap + reconcile scans
 
@@ -449,7 +473,8 @@ Lives at `$INTERN_KB_PATH/.onboarding-state.json`. Single source of truth for re
 
 `connectors` is keyed by connector id (see `references/connectors.md`); only **confirmed** ones
 are connected, and a confirmed `wired` connector is `done` once its probe ran and pages were
-written. Detected `stub` connectors stay `done: false` and add a `todo`.
+written. Detected `stub` connectors stay `done: false` and add a `todo`. A confirmed service
+with no registry row is connected via the generic recipe and recorded with `status: "adhoc"`.
 
 A step that times out or is skipped appends a human-readable item to `todos` so a later run
 (or the user asking "finish onboarding") completes it.
@@ -509,6 +534,12 @@ Curated pages stay concise; raw scan output stays under `raw/onboarding/`.
 - **Never ask "should I skip onboarding?"** when the user launched with a task — the first-run
   guard already routed you here and the Task-first fast path defines the answer. That question
   is a wasted round-trip with a known answer.
+- **Stripe and Cloudflare are worked examples throughout this skill, not requirements.** Plenty
+  of businesses use neither. Detection decides what to propose; the user decides what to
+  connect; "no payment provider and no host connected" is a valid, complete onboarding. For a
+  confirmed service without a registry row, use the generic recipe in
+  `references/connectors.md` — don't skip it just because it isn't pre-wired, and don't force a
+  registry service just because a recipe exists.
 - If the user explicitly skips a remaining onboarding phase (for example the Telegram handoff)
   to complete an urgent operational task, record the skipped phase in `.onboarding-state.json`
   with a `todo`, keep `status: in_progress`, and proceed. The first-run guard allows other work
