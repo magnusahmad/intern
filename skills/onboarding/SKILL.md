@@ -63,10 +63,12 @@ task, and finish the rest in the background or as `todos`.
    topic.
 4. **On confirmation:** kick off background scans and CLI warm-ups (see Phase 4), connect only
    the required connectors, **do the task**, and deliver its result.
-5. **Then — in the same turn you deliver the task result, before ending it** — dispatch the
-   deferred onboarding work as a background child: call the `delegate_task` tool with
-   `background: true` and a task prompt that runs Phase 5 end-to-end (KB bootstrap + scan
-   reconciliation; Telegram stays a `todo`). Brief the child for **completeness, not
+5. **Then — in the same turn you deliver the task result, before ending it** — first update
+   `.onboarding-state.json` with the facts learned on the task path (website/repo, confirmed
+   connectors, object URLs/IDs that are not secrets, deploy version, and `steps.kb.done=false`),
+   then dispatch the deferred onboarding work as a background child: call the `delegate_task`
+   tool with `background: true` and a task prompt that runs Phase 5 end-to-end (KB bootstrap +
+   scan reconciliation; Telegram stays a `todo`). Brief the child for **completeness, not
    minimalism**: its job is all of Phase 5 — structure *and* synthesis — and the yardstick is
    that tomorrow's run could redo today's task from the KB alone, without re-discovering
    anything you just learned (which objects exist at each connector and their real IDs, how
@@ -77,7 +79,8 @@ task, and finish the rest in the background or as `todos`.
    child writes KB files and `.done` markers, so its work survives your turn ending. Recording a `todo` instead of dispatching is a
    **fallback only** — permitted solely when `delegate_task` is unavailable or errors, and the
    todo must say which it was. Ending the run with `kb.done: false` and no dispatched child is
-   a failed fast path, not a fast one.
+   a failed fast path, not a fast one; if a backstop/user/system reminder catches this, update
+   the state file and dispatch Phase 5 immediately before any other final answer.
 
 The task itself runs under **normal operating rules** (SOUL.md: confirm irreversible or
 outward-facing actions), not under onboarding's read-only rule — that rule governs

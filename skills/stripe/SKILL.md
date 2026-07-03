@@ -56,6 +56,8 @@ link with one variation," aim for two commands total: one read (dump the
 reference link, line items, promo state), one write (create product/price/
 link from those values).
 
+**For size-specific Payment Links, de-dupe before creating products.** First list active products/prices and existing Payment Links for the requested size/name/metadata. If a matching Product+Price already exists but its old Payment Links are inactive, reuse that Price and create only the new active Payment Link. Do not create duplicate products just because no active link is currently in the storefront. When cloning from an active size link, copy shipping options, allowed shipping countries, billing/phone/automatic tax/after-completion settings, and link metadata; set `allow_promotion_codes=true` when the reference links use promo codes so all active promo codes apply automatically.
+
 ### API-key mode, best for agents and cron
 
 ```bash
