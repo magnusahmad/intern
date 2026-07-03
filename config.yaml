@@ -165,6 +165,11 @@ hooks:
   pre_verify:
     - command: "~/.hermes/profiles/intern/hooks/onboarding-kb-backstop.py"
       timeout: 10
+  # Auto-register the kb-backstop cron job — profile import copies cron/*.cron
+  # but never registers them, and no user runs `hermes cron create` by hand.
+  on_session_start:
+    - command: "~/.hermes/profiles/intern/hooks/ensure-kb-backstop-cron.py"
+      timeout: 60
 
 # Subagent delegation (generic Hermes feature). Tune or disable as needed.
 delegation:
