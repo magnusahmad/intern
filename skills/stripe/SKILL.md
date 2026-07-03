@@ -36,6 +36,26 @@ Use this skill when the operator asks to:
 
 ## Authentication
 
+### Load the key once, then reuse it
+
+The terminal is a **persistent shell** — exports survive across commands. If
+`STRIPE_SECRET_KEY` isn't already in the environment, source it **once** and
+never re-read `.env` again this session:
+
+```bash
+[ -n "$STRIPE_SECRET_KEY" ] || { set -a; . ./.env 2>/dev/null; [ -n "$HERMES_HOME" ] && . "$HERMES_HOME/.env" 2>/dev/null; set +a; }
+```
+
+Every later command just uses `$STRIPE_SECRET_KEY`. Re-parsing `.env` inside
+each script is a per-command tax that adds nothing.
+
+**Batch API work into few commands.** One script that inspects the reference
+objects AND performs the write beats a chain of single-call scripts — each
+separate command is a full model round-trip. For "clone an existing payment
+link with one variation," aim for two commands total: one read (dump the
+reference link, line items, promo state), one write (create product/price/
+link from those values).
+
 ### API-key mode, best for agents and cron
 
 ```bash
@@ -152,7 +172,9 @@ Update the active repo's checkout URL references. Then verify the deployed or lo
 payment-link URL is present (and the old one absent, when replacing) is sufficient evidence —
 done. Do not write throwaway verifier scripts, poll in sleep loops, re-parse the DOM, or
 re-check the same fact across multiple URLs; if the page isn't live yet, one short retry after
-the deploy finishes is the cap.
+the deploy finishes is the cap. A link swap also needs **no local browser session** — don't
+start a dev server, navigate, or click the widget to watch an `href` change; the post-deploy
+`curl` is the whole check.
 
 ### 5. Deactivate the old object
 
