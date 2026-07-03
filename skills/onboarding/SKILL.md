@@ -234,11 +234,19 @@ few seconds):
 scripts/detect-integrations.sh "<website_url>" [--repo <company_repo_path>] --out "$INTERN_KB_PATH/raw/onboarding/detected.json"
 ```
 
-It fetches a few public pages + greps the repo (read-only, no secrets) and emits a
-`detected[]` list — which payment, ecommerce, hosting, and channel providers the business
-actually uses. Write that list into `detected_integrations` in the state file. Phase 4 connects
-**only** what's detected (plus anything the user adds), so a non-Stripe business is never asked
-for a Stripe key. See `references/connectors.md` for the registry that drives this.
+It fetches a few public pages + greps the repo (read-only, no secrets) and emits two lists:
+
+- `detected[]` — services its fixed markers recognized (payments, ecommerce, hosting, channel
+  providers).
+- `candidates[]` — everything it *saw but couldn't classify*: unrecognized third-party domains
+  the pages reference (script/link/iframe/form) and unrecognized env-var name prefixes from the
+  repo (names only, never values). **You do the classifying** — you know what `klaviyo.com` or
+  `RESEND_API_KEY` is even though the script doesn't. Real services found here go into the
+  Phase 4 proposal alongside `detected`; noise gets ignored.
+
+Write the results into `detected_integrations` in the state file. Phase 4 connects **only**
+what's detected/confirmed (plus anything the user adds), so a non-Stripe business is never
+asked for a Stripe key. See `references/connectors.md` for the registry that drives this.
 
 ## Phase 4 — Discover + connect the services the business actually uses (read-only)
 
@@ -250,8 +258,10 @@ mandatory**. A business with no Stripe and no Cloudflare is a perfectly normal o
 nudge the user toward a service the evidence doesn't support. Telegram is the exception — it
 always runs, in Phase 6.
 
-1. **Discover.** Union three evidence sources: the Phase 3 fingerprint (its marker list is
-   *not* exhaustive), whatever the deep scans have surfaced so far (`checkout_observed`,
+1. **Discover.** Union three evidence sources: the Phase 3 fingerprint — both its `detected[]`
+   list *and* its `candidates[]` list, which you classify yourself (an unrecognized
+   `RESEND_API_KEY` env prefix or `js.klaviyo.com` script tag is a real service the fixed
+   markers don't know) — whatever the deep scans have surfaced so far (`checkout_observed`,
    `stripe_refs`, `hosting`, `expected_env_vars`), and **your own inspection** — response
    headers, script tags and embeds, SDK dependencies, env-var names in the repo, links and
    badges in the site footer, OAuth callback routes. Anything the business plausibly operates

@@ -15,9 +15,12 @@ figure out with the user which ones matter, and auth those.
 ## How the loop uses this
 
 1. **Detect** — `scripts/detect-integrations.sh URL [--repo PATH]` does a fast public-page +
-   repo fingerprint and emits a `detected[]` list. The background website/repo scans
-   (`*-signals.json`) add deeper evidence (`checkout_observed`, `stripe_refs`, `hosting`,
-   `expected_env_vars`, `app_shape`). Union the two into `detected_integrations` in the state
+   repo fingerprint and emits a `detected[]` list **plus a `candidates[]` list** of everything
+   it saw but couldn't classify (unrecognized third-party domains from page markup;
+   unrecognized env-var name prefixes from the repo — names only). The agent classifies the
+   candidates itself and promotes real services into the proposal. The background website/repo
+   scans (`*-signals.json`) add deeper evidence (`checkout_observed`, `stripe_refs`, `hosting`,
+   `expected_env_vars`, `app_shape`). Union all of it into `detected_integrations` in the state
    file, each entry carrying the `signals` that fired.
 2. **Confirm** — show the user the detected set in plain language ("I found Stripe — there's a
    payment link on your pricing page — and your site is on Cloudflare. I did **not** see
