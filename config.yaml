@@ -170,6 +170,13 @@ hooks:
   on_session_start:
     - command: "~/.hermes/profiles/intern/hooks/ensure-kb-backstop-cron.py"
       timeout: 60
+  # If cron jobs are registered but no gateway is running to tick them, have
+  # the agent ask the user for permission to start one (24h snooze; the agent
+  # can set a permanent opt-out). The hook only injects context — it never
+  # starts anything itself.
+  pre_llm_call:
+    - command: "~/.hermes/profiles/intern/hooks/gateway-nudge.py"
+      timeout: 15
 
 # Subagent delegation (generic Hermes feature). Tune or disable as needed.
 delegation:
