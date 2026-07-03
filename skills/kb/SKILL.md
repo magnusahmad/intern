@@ -1,6 +1,6 @@
 ---
 name: kb
-description: Read, capture, and maintain the Intern knowledge base (the company brain) at $INTERN_KB_PATH. Use it two ways — on request ("what do we know about X", "write this down", "check the KB") AND on your own initiative: whenever you learn, correct, or confirm a durable fact about the business while doing any other task, call this skill to capture it. It resolves the KB, orients on existing pages first (so it never duplicates), and writes concise, cross-linked pages plus an append-only log. Idempotent and merge-safe.
+description: 'Read, capture, and maintain the Intern knowledge base (the company brain) at $INTERN_KB_PATH. Use it two ways — on request ("what do we know about X", "write this down", "check the KB") AND on your own initiative: whenever you learn, correct, or confirm a durable fact about the business while doing any other task, call this skill to capture it. It resolves the KB, orients on existing pages first (so it never duplicates), and writes concise, cross-linked pages plus an append-only log. Idempotent and merge-safe.'
 version: 1.0.0
 author: Hermes Agent
 license: MIT

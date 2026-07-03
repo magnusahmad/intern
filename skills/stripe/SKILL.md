@@ -1,6 +1,6 @@
 ---
 name: stripe
-description: Use Stripe CLI and REST API for billing/storefront operations: Payment Links, Checkout Sessions, Products, Prices, Shipping Rates, and purchase verification for customer support workflows.
+description: 'Use Stripe CLI and REST API for billing/storefront operations: Payment Links, Checkout Sessions, Products, Prices, Shipping Rates, and purchase verification for customer support workflows.'
 version: 1.0.0
 author: Hermes Agent
 license: MIT
