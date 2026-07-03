@@ -66,8 +66,15 @@ task, and finish the rest in the background or as `todos`.
 5. **Then — in the same turn you deliver the task result, before ending it** — dispatch the
    deferred onboarding work as a background child: call the `delegate_task` tool with
    `background: true` and a task prompt that runs Phase 5 end-to-end (KB bootstrap + scan
-   reconciliation; Telegram stays a `todo`). The child writes KB files and `.done` markers, so
-   its work survives your turn ending. Recording a `todo` instead of dispatching is a
+   reconciliation; Telegram stays a `todo`). Brief the child for **completeness, not
+   minimalism**: its job is all of Phase 5 — structure *and* synthesis — and the yardstick is
+   that tomorrow's run could redo today's task from the KB alone, without re-discovering
+   anything you just learned (which objects exist at each connector and their real IDs, how
+   the site builds and deploys, where the code references what you changed). Point the child
+   at the Phase 5 spec, the state file, and the `raw/` artifacts as inputs rather than
+   enumerating page contents in the prompt — every business is different and Phase 5 already
+   defines the shape. "Minimal orientation stubs" is a failed Phase 5, not a lean one. The
+   child writes KB files and `.done` markers, so its work survives your turn ending. Recording a `todo` instead of dispatching is a
    **fallback only** — permitted solely when `delegate_task` is unavailable or errors, and the
    todo must say which it was. Ending the run with `kb.done: false` and no dispatched child is
    a failed fast path, not a fast one.
