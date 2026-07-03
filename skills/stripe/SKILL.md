@@ -124,6 +124,19 @@ for p in json.load(sys.stdin).get("data", []):
 '
 ```
 
+## Adding a variant Payment Link (e.g. a new size)
+
+When the operator asks to add a product variant matching the existing active Payment Links:
+
+1. Inspect active Payment Links first and pick a known-good reference link already used by the storefront. Expand line items to see the Price and Product.
+2. If an active link for the target variant already exists, surface it to the operator instead of silently reusing or duplicating it — they asked for a new link; an existing one usually means leftover state worth mentioning.
+3. Create a new Product for the variant, copying the reference Product's customer-facing description/images and following the business's metadata convention (check the KB/operations docs for it — never assume one).
+4. Create a new one-time Price with the same `unit_amount` and `currency` as the reference Price.
+5. Create the Payment Link with the new Price plus the reference link's accepted checkout settings: `shipping_options`, `shipping_address_collection[allowed_countries]`, `allow_promotion_codes`, `automatic_tax[enabled]`, `billing_address_collection`, `phone_number_collection[enabled]`, and `submit_type`.
+6. "Apply all active promo codes" for Payment Links normally means `allow_promotion_codes=true`; Stripe customers can then enter any active promotion code. Verify by listing active promotion codes and confirming the new link has `allow_promotion_codes: true`.
+7. Use Stripe idempotency keys for create calls so a retry does not mint duplicate Products, Prices, or Payment Links.
+8. After updating the storefront URL, verify both sides: Stripe object settings (active/live, amount, shipping, allowed countries, promo enabled, metadata) and the deployed page containing the new URL.
+
 ## Replacing immutable Payment Link fields
 
 Many Stripe object fields cannot be changed after creation. Payment Link `shipping_options` and Shipping Rate `delivery_estimate` are common examples. If an immutable field must change, create a replacement object and migrate references.
