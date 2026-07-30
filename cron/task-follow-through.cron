@@ -1,0 +1,15 @@
+# Resume useful long-running work without turning every task into an automation.
+schedule: "0 9 * * 1-5"
+prompt: |
+  Use the `task-ledger` skill to follow through on open work.
+
+  1. Read `operations/open-tasks.md` in the Intern KB. If it is absent, empty, or has no task
+     with a safe next action, respond exactly `[SILENT]`.
+  2. Choose the highest-value task whose next step is reversible and already authorized.
+     Revalidate its recorded state, then keep making safe progress until it is complete, genuinely
+     blocked, or needs a new approval.
+  3. Update the ledger with observed evidence and the next action. Never repeat an unchanged
+     failed attempt, invent progress, or take an irreversible/outward action without authority.
+  4. Deliver a concise update only for a verified completion or a new blocker the operator can
+     resolve. Otherwise respond exactly `[SILENT]`.
+delivery: origin
