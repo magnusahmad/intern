@@ -7,7 +7,7 @@ overlays:
       visibility: public
 
     - repo: magnusahmad/intern
-      ref: d0b5ecd85d417682ca0de0796d9e478ce48dd337
+      ref: 1da1984fb95bc89cca29695662bf9180c6631ed9
       visibility: public
       toolsSubdir: ""
       workflowsSubdir: ""
