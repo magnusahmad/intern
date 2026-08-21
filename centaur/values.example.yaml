@@ -1,0 +1,17 @@
+# Merge this file into a Centaur Helm deployment. Both runtime layers are pinned so a Slack agent
+# does not change behavior when either repository's default branch moves.
+overlays:
+  sources:
+    - repo: paradigmxyz/centaur
+      ref: 43b5adc2878184925f2414a05853d7d4981c08ab
+      visibility: public
+
+    - repo: magnusahmad/intern
+      ref: 1da1984fb95bc89cca29695662bf9180c6631ed9
+      visibility: public
+      toolsSubdir: ""
+      workflowsSubdir: ""
+      skillsSubdir: skills
+
+sandbox:
+  harnessEngine: codex

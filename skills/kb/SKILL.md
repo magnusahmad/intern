@@ -94,6 +94,12 @@ Orient (SCHEMA + index), locate the relevant pages, synthesize a concise answer,
 pages** you used rather than pasting large blobs. If the question exposes a gap, note it (and
 capture the answer if you just discovered it).
 
+Treat mutable facts as last-known state, not live truth. Before an action depends on a price,
+customer status, deployment, permission, schedule, or other time-sensitive value, recheck the
+closest authoritative source when it is available. If it is not, state the age and uncertainty
+instead of presenting the KB value as current. Capture any verified change through the normal
+merge-and-log path.
+
 ## Operation: lint (light health check)
 
 On request ("check/clean the KB"), scan for: orphan pages (no inbound `[[wikilinks]]`), broken

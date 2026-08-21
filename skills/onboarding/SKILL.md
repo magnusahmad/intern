@@ -450,13 +450,20 @@ Verify the **definition of done** (all must pass):
 - [ ] Company repo recorded (if provided); its scan reconciled or queued as a `todo`.
 - [ ] Telegram bot created, **locked to the owner's user ID**, gateway restarted, test message
       received.
+- [ ] Every bundled `cron/*.cron` job is registered once and the scheduler reports healthy.
 
 Background scans may still be pending — they're `todos`, not blockers.
 
 Then:
-1. Write `decisions/<YYYY-MM-DD>-onboarding.md` summarizing what was set up (no secrets).
-2. Set `.onboarding-state.json` `status: "complete"`, bump `updated_at`.
-3. Teach the first Telegram commands the user can try now:
+1. List scheduled jobs with the native `cronjob` tool (or `hermes cron list`), then inspect each
+   bundled `cron/*.cron` definition and derive its job name from the filename stem. For every
+   missing name, create it from that file's schedule, prompt, and delivery via `cronjob` (or the
+   current positional `hermes cron create ... --name ... --deliver ...`). Never duplicate an
+   existing name. Run `hermes cron status` once after registration; because the Telegram gateway
+   is already running, healthy jobs will tick without another service.
+2. Write `decisions/<YYYY-MM-DD>-onboarding.md` summarizing what was set up (no secrets).
+3. Set `.onboarding-state.json` `status: "complete"`, bump `updated_at`.
+4. Teach the first Telegram commands the user can try now:
    - "summarize my business"
    - "check Stripe sales"
    - "what needs my attention today?"
